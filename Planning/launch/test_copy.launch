@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+
+<launch>  
+    <node name="place" pkg="armadillo2_bgu" type="place" output="screen">
+    </node>
+
+ 
+
+
+    
+</launch>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="61d4eebc-5703-43c1-b10e-2c849e9372c8" name="icvldl" url="http://132.72.44.66">
+        <fileTransfer host="132.72.44.66" port="22" rootFolder="/shai_ws" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

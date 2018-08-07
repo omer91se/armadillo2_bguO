@@ -1,0 +1,8 @@
+# Define the goal
+string data  
+---
+# Define the result
+string res
+---
+# Define a feedback message
+string feed
