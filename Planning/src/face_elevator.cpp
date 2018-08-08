@@ -9,7 +9,6 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as)
 	armadillo2_bgu::OperationResult result_;
     ROS_INFO("IN face_elevator: Facing elevator");
     //put you'r code in here.
-    ros::Duration(2.5).sleep();
 
     if(true) {
         as->setSucceeded(result_);
