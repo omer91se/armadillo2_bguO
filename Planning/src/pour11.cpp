@@ -1,5 +1,5 @@
 //
-// Created by tom on 22/11/16.
+// Created by omer segal 2/8/2018
 //
 
 #include <ros/ros.h>
@@ -14,11 +14,13 @@ typedef actionlib::SimpleActionServer<armadillo2_bgu::OperationAction> Server;
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ArmClient;
 typedef actionlib::SimpleActionClient<control_msgs::GripperCommandAction> GripperClient;
 
+
 void activeCb();
 void feedbackCb(const control_msgs::FollowJointTrajectoryFeedbackConstPtr& feedback);
 void doneCb(const actionlib::SimpleClientGoalState& state, const control_msgs::FollowJointTrajectoryResultConstPtr& result);
 
 void buildGoal(control_msgs::FollowJointTrajectoryGoal &goal);
+
 
 float joints[6];
 
@@ -39,7 +41,7 @@ private:
         if((-M_PI / 4)  < feedback->actual.positions[1] && _needToOpen && !_alreadyOpen) {
             _alreadyOpen = true;
             ROS_INFO("OPEN %f", feedback->actual.positions[1]);
-            openGripper();
+            //openGripper();
         }
     }
     void activeCb() {
@@ -52,17 +54,19 @@ private:
         goal.command.max_effort = effort;
 
         _gripperClient.sendGoal(goal);
+        ROS_INFO("Gripper waiting");
         _gripperClient.waitForResult();
 
         return _gripperClient.getState() == actionlib::SimpleClientGoalState::SUCCEEDED;
 
     }
 
-    control_msgs::FollowJointTrajectoryGoal setGoalTja(double pos,double t) {
+    control_msgs::FollowJointTrajectoryGoal setGoalTja(double pos) {
+        ROS_INFO("AT Pour: setting goal");
         control_msgs::FollowJointTrajectoryGoal goal;
         trajectory_msgs::JointTrajectoryPoint point;
 
-        goal.trajectory.header.frame_id = "/base_link";
+        goal.trajectory.header.frame_id = "/map";
         goal.trajectory.header.stamp = ros::Time::now();
         goal.trajectory.joint_names.push_back("rotation1_joint");
         goal.trajectory.joint_names.push_back("shoulder1_joint");
@@ -70,21 +74,31 @@ private:
         goal.trajectory.joint_names.push_back("rotation2_joint");
         goal.trajectory.joint_names.push_back("shoulder3_joint");
         goal.trajectory.joint_names.push_back("wrist_joint");
-
+        ROS_INFO("AT Pour: setting goal2");
         point.time_from_start = ros::Duration(2.0);
         point.positions.resize(goal.trajectory.joint_names.size());
+        ROS_INFO("AT Pour: setting goal3");
         point.positions[0] = joints[0];
-        point.positions[1] = joints[2];
-        point.positions[2] = joints[3];
-        point.positions[3] = joints[1];
-        point.positions[4] = joints[4]+t;
+        point.positions[1] = joints[1]+2;
+        point.positions[2] = joints[2];
+        point.positions[3] = joints[3];
+        point.positions[4] = joints[4];
         point.positions[5] = pos;
-        goal.trajectory.points.push_back(point);
+        ROS_INFO("AT Pour: goal set");
+/*
+        point.velocities.resize(6);
+        point.velocities[0] = 0.0;
+        point.velocities[1] = 0.0;
+        point.velocities[2] = 0.0;
+        point.velocities[3] = 0.0;
+        point.velocities[4] = 0.0;
+        point.velocities[5] = 0.0;
+        goal.trajectory.points.push_back(point);*/
         return goal;
     }
 
-    bool setArmCmd(double pos,double t) {
-        _armClient.sendGoal(setGoalTja(pos,t),
+    bool setArmCmd(double pos) {
+        _armClient.sendGoal(setGoalTja(pos),
                             boost::bind(&ArmThrowNode::doneCb, this, _1, _2),
                             boost::bind(&ArmThrowNode::activeCb, this),
                             ArmClient::SimpleFeedbackCallback());
@@ -108,75 +122,85 @@ public:
 
     void run() {
         char choice;
-        do {
+        //do {
             //std::cout << "Please type 'g' to execute a throw command or 'q' to quit: ";
             //std::cin >> choice;
             //if(choice == 'g') throwProcess();
             //else if(choice == 'q') ROS_INFO("bye bye");
             //else ROS_WARN("Unknown syntax");
             throwProcess();
-            choice = 'q';
+           // choice = 'q';
 
-        } while (ros::ok() && choice != 'q');
-        ros::shutdown();
+        //} while (ros::ok() && choice != 'q');
+       // ros::shutdown();
     }
 
     void throwProcess() {
-        _alreadyOpen = false;
-        //openGripper();
-        preThrowCmd();
+        int i = 7;
+        while(ros::ok() & i != 0){
+            std::cout<<"1 = open\n2 = close \n3 = pour"<<std::endl;
+            std::cin>>i;
+        //_alreadyOpen = false;
+        if(i==1)
+            openGripper();
+        if(i==3)
+            preThrowCmd();
         //ros::Duration(10.0).sleep();
-        //closeGripper();
+        if(i == 2)
+            closeGripper();
         //ros::Duration(3.0).sleep();
         //throwCmd();
+        }
 
     }
 
     void openGripper() {
-        setGripperCmd(0.14);
+        setGripperCmd(0.08,0.4);
     }
 
     void closeGripper() {
-        setGripperCmd(0.01, 0.3);
+        setGripperCmd(0.0,0.3);
+
     }
 
 
     void preThrowCmd() {
-        setArmCmd(0,1);
-        ros::Duration(3.0).sleep();
-        setArmCmd(-1.30,0);
-        ros::Duration(3.0).sleep();
-        setArmCmd(-1.90,0);
-        ros::Duration(3.0).sleep();
-        setArmCmd(-2.20,0);
-        ros::Duration(3.0).sleep();
-        setArmCmd(0,0);
+        ROS_INFO("POUR:Twisting");
+        setArmCmd(-2.7);
+        ros::Duration(5).sleep();
+        setArmCmd(-2.3);
+	ros::Duration(2).sleep();
+	setArmCmd(-1.5);
+	ros::Duration(2).sleep();
+	setArmCmd(-1.7);
+	ros::Duration(3).sleep();
+	setArmCmd(0);
+
     }
 
     void throwCmd() {
-        setArmCmd(1.0,0);
+        setArmCmd(1.0);
     }
 
 };
-
-void subCB(const sensor_msgs::JointStateConstPtr& jointStates){
-    joints[0] = jointStates->position[6];
-    joints[1] = jointStates->position[7];
-    joints[2] = jointStates->position[8];
-    joints[3] = jointStates->position[9];
-    joints[4] = jointStates->position[10];
+void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
+        ROS_INFO("POUR:Pouring");
+        ArmThrowNode armThrowNode;
+        armThrowNode.run();
 }
 
-
-void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
-    ArmThrowNode armThrowNode;
-    armThrowNode.run();
+void subCB(const sensor_msgs::JointStateConstPtr& jointStates){
+    joints[0] = jointStates->position[0];
+    joints[1] = jointStates->position[1];
+    joints[2] = jointStates->position[2];
+    joints[3] = jointStates->position[3];
+    joints[4] = jointStates->position[4];
 }
 
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "test");
+    ros::init(argc, argv, "pour");
 
-    std::cout<<"Test online"<<std::endl;
+    std::cout<<"Pour online"<<std::endl;
     ros::NodeHandle n;
 
     ros::Subscriber sub = n.subscribe("/joint_states", 1000, subCB);
@@ -185,7 +209,6 @@ int main(int argc, char** argv) {
     server.start();
     spinner.start();
     ros::waitForShutdown();
-
 
     //armClient.sendGoal(goal, &doneCb, &activeCb, ArmClient::SimpleFeedbackCallback());
 
@@ -206,7 +229,8 @@ void buildGoal(control_msgs::FollowJointTrajectoryGoal &goal) {
 
     final.time_from_start = ros::Duration(10.0);
     final.positions.resize(goal.trajectory.joint_names.size());
-    final.positions[1] = 1.57;
+
+    final.positions[5] = 1.57;
     goal.trajectory.points.push_back(final);
 
 }
