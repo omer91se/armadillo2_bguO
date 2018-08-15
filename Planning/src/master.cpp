@@ -23,9 +23,8 @@ void controlCB(const armadillo2_bgu::ActionDispatch::ConstPtr& msg){
     client.waitForServer();
 
 	while (ros::ok() && action){
-		ros::Duration(2).sleep();
         client.sendGoal(goal);
-        bool finished = client.waitForResult(ros::Duration(30.0));
+        bool finished = client.waitForResult();
 		 
   		if (finished){
             actionlib::SimpleClientGoalState state = client.getState();

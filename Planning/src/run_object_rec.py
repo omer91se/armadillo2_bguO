@@ -22,12 +22,15 @@ from time import sleep
 
 import os
 
+import subprocess
+
 done = False
 image_file = os.path.dirname(os.path.abspath(__file__)) + '/two_cups.jpg'
 my_gui = None
 image_data = None
 server = None
 answer = None
+auto_speech = False
 
 def image_callback(data):
     global my_gui
@@ -51,7 +54,7 @@ def image_callback(data):
 
 def caption_image():
     #Armadillo 1 and 2:
-    rospy.Subscriber("kinect2/qhd/image_color", SensorImage, image_callback)
+    rospy.Subscriber("kinect2/hd/image_color", SensorImage, image_callback)
     #Old:
     #rospy.Subscriber("/front_camera/image_raw", SensorImage, image_callback)
 
@@ -94,8 +97,31 @@ class MyFirstGUI:
         query = query.replace('cap', 'cup')
         print(query)
 
+
         if query == '<unrecognized speech>':
             #query='Show me the person'
+            return
+
+        lowercase_query = query.lower()
+        command = None
+
+        #if 'give' in lowercase_query or 'open' in lowercase_query:
+        #    command = 'give'
+        #    cmd = "rosrun armadillo2_bgu arm_trajectory_give"
+        # elif 'take' in lowercase_query:
+        #     command = 'take'
+        #     cmd = "rosrun armadillo2_bgu arm_trajectory_take"
+        if 'release' in lowercase_query or 'open' in lowercase_query: # open grip
+            command = 'open'
+            cmd = "rosrun armadillo2_bgu arm_trajectory_open_gripper"
+        elif 'close' in lowercase_query: # close grip
+            command = 'close'
+            cmd = "rosrun armadillo2_bgu arm_trajectory_close_gripper"
+        # elif ('push' in lowercase_query or 'press' in lowercase_query) and 'button' in lowercase_query:  # push button
+        #     pass #command = 'push'
+
+        if command:
+            subprocess.Popen(cmd, shell=True)
             return
 
         parsed_query = parse_query(query)
@@ -172,13 +198,13 @@ class MyFirstGUI:
         width = (box[3] - box[1]) / 2
         height = (box[2] - box[0]) / 2
 
-        #point_xyz = self.get_transform(point)
+        point_xyz = self.get_transform(point)
         #print(point_xyz)
         #point_xyz['z']
 
-        answer = ('x' + str(point[0]) + 'y' + str(point[1]) + 'z' + str(0) + \
-                 'w' + str(width) + 'h' + str(height), \
-                 'IN PICK: Object placed in: x:' + str(point[0]) + ' y:' + str(point[1]) + ' z:' + str(0) + \
+        answer = ('x' + str(point[0]) + 'y' + str(point[1]) + 'z' + str(point_xyz['z']) + \
+                 'w' + str(width) + 'h' + str(height),
+                 'IN PICK: Object placed in: x:' + str(point[0]) + ' y:' + str(point[1]) + ' z:' + str(point_xyz['z']) + \
                  ' w:' + str(width) + ' h:' + str(height))
 
 
@@ -192,10 +218,12 @@ class MyFirstGUI:
 
 
     def start_demo(self):
-        global image_file
+        global auto_speech
 
-        with open(image_file, 'rb') as f:
-            data = f.read()
+        #global image_file
+
+        #with open(image_file, 'rb') as f:
+        #    data = f.read()
 
         #desc = scene_description.processRequest(data)
         #desc = desc['description']['captions'][0]['text']
@@ -205,27 +233,39 @@ class MyFirstGUI:
         #response = processRequest(data)
         #print(response)
         #tts('I see ' + response['objects_string'])
-        
-        tts('Hi there! How can I help?')
 
-        sd = SpeechDetector()
-        sd.run(self.query_callback)
+        if auto_speech:
+            query = raw_input('Enter your query:')
+
+            self.query_callback(query)
+        else:
+            tts('Hi there! How can I help?')
+
+            sd = SpeechDetector()
+            sd.run(self.query_callback)
 
 def execute(goal):
-
-    _result = armadillo2_bgu.msg.OperationResult()
-    rospy.loginfo("IN PICK: Observing...")
-    
+    global auto_speech
     global image_file
     global my_gui
     global server
     global answer
 
+    _result = armadillo2_bgu.msg.OperationResult()
+    rospy.loginfo("IN PICK: Observing...")
+    response = raw_input('Do you want to speak? (y or n)')
+    if response == 'n':
+        auto_speech = True
+
     root = Tk()
 
-    my_gui = MyFirstGUI(root, image_file)
+    rospy.loginfo("Caption_image")
 
     caption_image()
+
+    my_gui = MyFirstGUI(root, image_file)
+    
+    rospy.loginfo("starting demo")
     
     my_gui.start_demo()    
 
@@ -248,6 +288,7 @@ def execute(goal):
 
 def main():
     rospy.loginfo("***************")
+
 
     global server
     rospy.init_node('observe')
