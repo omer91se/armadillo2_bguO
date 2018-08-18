@@ -40,7 +40,7 @@ void observeDoneCB(const actionlib::SimpleClientGoalState& state,
 void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
 /*
     armadillo2_bgu::OperationGoal sendGoal;
-    ROS_INFO("Starting pick sequence");
+    ROS_INFO("Starting move sequence");
 
     Client client("observe", true);
     client.waitForServer();

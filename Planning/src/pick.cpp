@@ -23,7 +23,7 @@ float h;
 bool gotXYZ = false;
 std::string frameId;
 
-
+//with Dan's vision
 /*void observeDoneCB(const actionlib::SimpleClientGoalState& state,
         const armadillo2_bgu::OperationResultConstPtr& res){
     std::string x1 = ((res->res).substr((res->res).find('x')+1,(res->res).find('y')));
@@ -42,16 +42,17 @@ std::string frameId;
     w = std::stoi (w1);
 }*/
 
+//simple vision
 void poseCB(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 
-    x = msg->pose.position.x+0.022;
+    x = msg->pose.position.x;
     y = msg->pose.position.y;
-    z = msg->pose.position.z;
+    z = msg->pose.position.z+0.035;
    //x = -0.112948;
    //y = 0.0866848;
    //z = 0.754;
 
-    w = 0.03;
+    w = 0.022;
     h = 0.1;
     frameId = msg->header.frame_id;
     gotXYZ =true;
@@ -63,7 +64,7 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
     armadillo2_bgu::OperationGoal sendGoal;
     ROS_INFO("Starting pick sequence");
 
-/*
+/* //with Dan's vision
     Client client("observe", true);
     client.waitForServer();
 
@@ -116,6 +117,7 @@ int main(int argc, char** argv)
   std::cout<<"Pick online"<<std::endl;
   ros::NodeHandle n;
 
+  //for simple vision
   ros::Subscriber sub = n.subscribe("object_pose", 100, poseCB);
 
   Server server(n, "pick", boost::bind(&execute, _1, &server), false);

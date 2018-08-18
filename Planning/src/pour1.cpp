@@ -36,7 +36,7 @@ control_msgs::FollowJointTrajectoryGoal setGoalTja(double pos) {
 
 int main(int argc, char** argv)
 {
-      ros::init(argc, argv, "pick");
+      ros::init(argc, argv, "pour");
       std::cout<<"Pour online"<<std::endl;
       ros::NodeHandle n;
       ros::AsyncSpinner spinner(2);

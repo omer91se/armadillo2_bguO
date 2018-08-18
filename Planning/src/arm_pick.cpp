@@ -312,7 +312,6 @@ void executePickCB(const armadillo2_bgu::SimplePickGoalConstPtr& goal, pick_serv
 
     // transfer original goal to in relation to base footprint
     geometry_msgs::PointStamped transformed_goal;
-    ROS_INFO("[arm_server]: trying to transform ");
     try
     {
         ROS_INFO("[arm_server]: trying to transform 2 ");

@@ -9,8 +9,8 @@
     <node name="run_node" pkg="armadillo2_bgu" type="run_object_rec.py" output="screen">
     </node>
 
-   <!-- <node name="move" pkg="armadillo2_bgu" type="move" output="screen">
-    </node> -->
+    <!--<node name="move" pkg="armadillo2_bgu" type="move" output="screen">
+    </node>--> 
 
     <node name="pick" pkg="armadillo2_bgu" type="pick" output="screen">
     </node>
@@ -20,6 +20,10 @@
 
     <node name="pour" pkg="armadillo2_bgu" type="pour" output="screen">
     </node>
+     
+    <node name="omer_planner" pkg="armadillo2_bgu" type="omer_planner" output="screen">
+    </node>
+
  
 
 
