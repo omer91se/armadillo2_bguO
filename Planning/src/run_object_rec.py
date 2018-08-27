@@ -7,12 +7,14 @@ import armadillo2_bgu
 import actionlib
 from PIL import Image, ImageTk, ImageDraw
 from sensor_msgs.msg import Image as SensorImage
+from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 from armadillo2_bgu.msg import OperationAction
 from object_recognition.objects_detection import processRequest, parse_query
 from object_recognition.tts import tts
 
 from object_recognition.voice_recognition import SpeechDetector
+import math
 
 from Tkinter import Tk, Label, Button
 
@@ -31,7 +33,9 @@ image_data = None
 server = None
 answer = None
 auto_speech = False
+points = None
 
+#Saves the image from the robot's camera to a file.
 def image_callback(data):
     global my_gui
     global done
@@ -45,16 +49,26 @@ def image_callback(data):
         img = Image.frombytes('RGB', imgSize, rawData)
         image_file = 'robot_image.png'
         img.save(image_file)
-        image_data = data
+        #image_data = data
 
-        image = Image.open(image_file)
-        photo = ImageTk.PhotoImage(image)
-        my_gui.label.configure(image=photo)
-        my_gui.label.image = photo  # keep a reference!
+        #image = Image.open(image_file)
+        #photo = ImageTk.PhotoImage(image)
+        #my_gui.label.configure(image=photo)
+        #my_gui.label.image = photo  # keep a reference!
 
+#Saves the points from the robot's camera to a file.
+def points_callback(data):
+    print('Processing points cloud...')
+
+    global points
+    points = data
+
+#OMER:move to main.
 def caption_image():
     #Armadillo 1 and 2:
     rospy.Subscriber("kinect2/hd/image_color", SensorImage, image_callback)
+
+
     #Old:
     #rospy.Subscriber("/front_camera/image_raw", SensorImage, image_callback)
 
@@ -62,19 +76,19 @@ def caption_image():
     #rospy.spin()
 
 
-class MyFirstGUI:
-    def __init__(self, master, image_file):
-        self.master = master
-        master.title("Demo")
-
-        self.start_demo_button = Button(master, text="Start", command=self.start_demo)
-        self.start_demo_button.pack()
-
-        image = Image.open(image_file)
-        photo = ImageTk.PhotoImage(image)
-        self.label = Label(image=photo)
-        self.label.image = photo  # keep a reference!
-        self.label.pack()
+class ObjectRecognizer:
+    # def __init__(self, master, image_file):
+    #     self.master = master
+    #     master.title("Demo")
+    #
+    #     self.start_demo_button = Button(master, text="Start", command=self.start_demo)
+    #     self.start_demo_button.pack()
+    #
+    #     image = Image.open(image_file)
+    #     photo = ImageTk.PhotoImage(image)
+    #     self.label = Label(image=photo)
+    #     self.label.image = photo  # keep a reference!
+    #     self.label.pack()
 
     def draw_box(self, y1, x1, y2, x2):
         global image_file
@@ -87,10 +101,13 @@ class MyFirstGUI:
 
         del draw
 
-        photo = ImageTk.PhotoImage(image)
-        self.label.configure(image=photo)
-        self.label.image = photo  # keep a reference!
+        image.save(image_file)
 
+        # photo = ImageTk.PhotoImage(image)
+        # self.label.configure(image=photo)
+        # self.label.image = photo  # keep a reference!
+
+    #Parse query, and retrieve recognized object coordinates.
     def query_callback(self, query, ignore_params=None):
         global image_file
         global answer
@@ -140,9 +157,10 @@ class MyFirstGUI:
         print(response)
 
         candidate_indices = []
-
+        #class_name are the object that were found.
         for i, class_name in enumerate(response['result']['class_names']):
             if class_name.startswith(label + '|'):
+                #adds all the objects that were requested to "candidate_indices" the indices correspond to the indices at "yx_boxes"
                 candidate_indices.append(i)
         if len(candidate_indices) == 0:
             tts("I see no " + subject)
@@ -160,7 +178,7 @@ class MyFirstGUI:
                 x_center = (x1 + x2) / 2
 
                 candidate_boxes.append((y1, x1, y2, x2, x_center))
-
+            #sort the objects by their centers. smaller = left.
             candidate_boxes.sort(key=lambda box: box[4])
 
             tts("Do you mean the " + subject + " on the left or the " + subject + " on the right?")
@@ -169,6 +187,7 @@ class MyFirstGUI:
         else:
             answer = 'object_not_found' 
 
+    #Disambiguation.
     def answer_callback(self, answer, candidate_boxes_and_subject):
         print(answer)
         if answer=='<unrecognized speech>':
@@ -191,32 +210,37 @@ class MyFirstGUI:
         tts("Here is the " + candidate_boxes_and_subject[1])
         self.return_point(box)
 
+    #Returns the x,y,z,w,h in meters
     def return_point(self, box):
         global answer
-
-        point = ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2)
+        #the values below are measured in pixels.
+        #calculate the center of the box
+        point = ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2)#(x,y)
+        #calculate width and height
         width = (box[3] - box[1]) / 2
         height = (box[2] - box[0]) / 2
 
-        point_xyz = self.get_transform(point)
-        #print(point_xyz)
-        #point_xyz['z']
+        print('My x,y:', point)
 
-        answer = ('x' + str(point[0]) + 'y' + str(point[1]) + 'z' + str(point_xyz['z']) + \
+        #calculate (x,y,z) in robot's POV (meters not pixels).
+        point_xyz = self.get_transform(point)
+        print(point_xyz)
+
+        answer = ('x' + str(point_xyz[0]) + 'y' + str(point_xyz[1]) + 'z' + str(point_xyz[2]) + \
                  'w' + str(width) + 'h' + str(height),
-                 'IN PICK: Object placed in: x:' + str(point[0]) + ' y:' + str(point[1]) + ' z:' + str(point_xyz['z']) + \
+                 '[run_object_rec]: Object placed in: x:' + str(point_xyz[0]) + ' y:' + str(point_xyz[1]) + ' z:' + str(point_xyz[2]) + \
                  ' w:' + str(width) + ' h:' + str(height))
 
-
+    #Retrieve the x,y in pixels and returns x,y,z in meters.
     def get_transform(self, point):
-        global image_data
+        global points
 
         coordinate = [int(point[0]), int(point[1])]
-        generator = pc2.read_points(image_data, field_names=['x', 'y', 'z'], uvs=[coordinate])
+        generator = pc2.read_points(points, field_names=['x', 'y', 'z'], uvs=[coordinate])
 
         return generator.next()
 
-
+    #Starts the demo, gets the query.
     def start_demo(self):
         global auto_speech
 
@@ -244,6 +268,7 @@ class MyFirstGUI:
             sd = SpeechDetector()
             sd.run(self.query_callback)
 
+#decides whether to use STT or written query.
 def execute(goal):
     global auto_speech
     global image_file
@@ -252,22 +277,18 @@ def execute(goal):
     global answer
 
     _result = armadillo2_bgu.msg.OperationResult()
-    rospy.loginfo("IN PICK: Observing...")
-    response = raw_input('Do you want to speak? (y or n)')
+    rospy.loginfo("[run_object_rec]: Observing...")
+    response = raw_input('***Do you want to speak? (y or n)')
     if response == 'n':
         auto_speech = True
 
-    root = Tk()
+    #root = Tk()
 
-    rospy.loginfo("Caption_image")
-
-    caption_image()
-
-    my_gui = MyFirstGUI(root, image_file)
+    object_recognizer = ObjectRecognizer()
     
     rospy.loginfo("starting demo")
-    
-    my_gui.start_demo()    
+
+    object_recognizer.start_demo()
 
     #root.mainloop()
     
@@ -289,6 +310,12 @@ def execute(goal):
 def main():
     rospy.loginfo("***************")
 
+    rospy.loginfo("Caption_image")
+
+    print "*** Getting points cloud..."
+
+    rospy.Subscriber("kinect2/hd/points", PointCloud2, points_callback)
+    caption_image()
 
     global server
     rospy.init_node('observe')

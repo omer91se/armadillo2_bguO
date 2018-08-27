@@ -80,7 +80,8 @@ private:
         point.positions[2] = joints[2]-arm;
         point.positions[3] = joints[3];
         point.positions[4] = joints[4]+arm;
-        point.positions[5] = joints[5]+pos;
+        //point.positions[5] = joints[5]+pos;
+        point.positions[5] = pos;
         goal.trajectory.points.push_back(point);
         return goal;
     }
@@ -145,7 +146,7 @@ public:
 
 
     void preThrowCmd() {
-        setArmCmd(0,0.1);
+      //  setArmCmd(0,0.1);
 
         setArmCmd(1.9);
         ros::Duration(1.5).sleep();
@@ -186,7 +187,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle n;
 
     ros::Subscriber sub = n.subscribe("/arm_trajectory_controller/state", 1000, subCB);
-    Server server(n, "pour", boost::bind(&execute, _1, &server), false);
+    Server server(n, "goto_waypoint", boost::bind(&execute, _1, &server), false);
     ros::AsyncSpinner spinner(4);
     server.start();
     spinner.start();

@@ -46,10 +46,14 @@ typedef actionlib::SimpleActionServer<armadillo2_bgu::SimpleTargetAction> target
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
 
+typedef actionlib::SimpleActionClient<armadillo2_bgu::OperationAction> Client;
+
 tf::TransformListener *listener_ptr;
 
-move_base_msgs::MoveBaseGoal get_pre_pick_pose();
-bool base_cmd(move_base_msgs::MoveBaseGoal goal);
+//move_base_msgs::MoveBaseGoal get_pre_pick_pose(geometry_msgs::Point point);
+//bool base_cmd(move_base_msgs::MoveBaseGoal goal);
+
+bool build_goal(move_base_msgs::MoveBaseGoal &target, geometry_msgs::Pose &object);
 
 MoveBaseClient *moveBaseClient_ptr;
 
@@ -60,10 +64,11 @@ double base_distance_from_object=0.55;
 float x;
 float y;
 float z;
-float w;
-float h;
+bool gotXYZ = false;
+std::string frameId;
 
-
+//With Dan's code.
+/*
 void observeDoneCB(const actionlib::SimpleClientGoalState& state,
                    const armadillo2_bgu::OperationResultConstPtr& res){
     std::string x1 = ((res->res).substr((res->res).find('x')+1,(res->res).find('y')));
@@ -80,18 +85,17 @@ void observeDoneCB(const actionlib::SimpleClientGoalState& state,
 
     std::string h1 = ((res->res).substr((res->res).find('h')+1,(res->res).find('\0')));
     w = std::stoi (w1);
-}
+}*/
 
 
-
-move_base_msgs::MoveBaseGoal get_pre_pick_pose(geometry_msgs::Point point) {
+/*move_base_msgs::MoveBaseGoal get_pre_pick_pose(geometry_msgs::Point point) {
     tf::Transform dest_transform;
     move_base_msgs::MoveBaseGoal goal;
     try{
 
         tf::StampedTransform transform_base;
         try {
-            listener_ptr->lookupTransform("kinect2_link", "base_link", ros::Time(0), transform_base);
+            listener_ptr->lookupTransform(frameId, "base_link", ros::Time(0), transform_base);
 
         }
         catch (tf::TransformException ex){
@@ -132,14 +136,19 @@ move_base_msgs::MoveBaseGoal get_pre_pick_pose(geometry_msgs::Point point) {
     goal.target_pose.pose.orientation.z=dest_transform.getRotation().z();
     goal.target_pose.pose.orientation.w=dest_transform.getRotation().w();
     return goal;
-}
+}*/
 
 
-
+/*
 bool drive_go_cb(const armadillo2_bgu::SimpleTargetGoalConstPtr& goal, target_server_t* as) {
+    //Client client();
+   // ros::NodeHandle n;
 
-    ros::NodeHandle n;
+   std::cout<<"goal->x: "<<goal->x<<std::endl;
+    std::cout<<"FrameID: "<<goal->frame_id<<std::endl;
+
     geometry_msgs::Point point;
+    frameId = goal->frame_id;
     point.x = goal->x;
     point.y = goal->y;
     point.z = goal->z;
@@ -150,10 +159,12 @@ bool drive_go_cb(const armadillo2_bgu::SimpleTargetGoalConstPtr& goal, target_se
         ROS_INFO("Reached position");
         as->setSucceeded();
     }
-    else
+    else {
+        ROS_INFO("[move]: Couldn't move to goal");
         as->setAborted();
+    }
 
-}
+}*/
 
 
 
@@ -167,7 +178,7 @@ res.message="Reached pre-picking position";
 res.success=true;
 }
  */
-
+/*
 bool base_cmd(move_base_msgs::MoveBaseGoal goal) {
 
     ROS_INFO("[%s]: Sending goal", ros::this_node::getName().c_str());
@@ -183,7 +194,62 @@ bool base_cmd(move_base_msgs::MoveBaseGoal goal) {
         return false;
     }
 }
+*/
 
+
+bool build_goal(move_base_msgs::MoveBaseGoal &target, geometry_msgs::Pose &object){
+    // get robot position
+    tf::TransformListener _tf_listener;
+    _tf_listener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
+
+    tf::StampedTransform robot_transform;
+    _tf_listener.lookupTransform("map", "base_link", ros::Time(0), robot_transform);
+
+//    geometry_msgs::Pose robot;
+//    robot.position.x = robot_transform.getOrigin().x();
+//    robot.position.y = robot_transform.getOrigin().y();
+//    robot.position.z = 0.0;
+
+    // if needed, get robot's new pose in radius from goal
+    geometry_msgs::Pose dest;
+    dest = object;
+
+    // build goal and return
+    target.target_pose.header.frame_id = "kinect2_rgb_optical_frame";
+    target.target_pose.header.stamp = ros::Time::now();
+
+    target.target_pose.pose.position.x = dest.position.x-0.55;
+    target.target_pose.pose.position.y = dest.position.y;
+    target.target_pose.pose.position.z = 0.0;
+
+    target.target_pose.pose.orientation.x = dest.orientation.x;
+    target.target_pose.pose.orientation.y = dest.orientation.y;
+    target.target_pose.pose.orientation.z = dest.orientation.z;
+    target.target_pose.pose.orientation.w = dest.orientation.w;
+
+    return true;
+}
+
+void driveCB(const armadillo2_bgu::SimpleTargetGoalConstPtr& goal, target_server_t* as){
+    ROS_INFO("[move]: In driveCB");
+    move_base_msgs::MoveBaseGoal MB_goal;
+
+    geometry_msgs::Pose point;
+    frameId = goal->frame_id;
+    point.position.x = goal->x;
+    point.position.y = goal->y;
+    point.position.z = goal->z;
+    if(!build_goal(MB_goal,point)){
+        ROS_INFO("couldn't create goal.");
+        as->setAborted();
+        return;
+    }
+    MoveBaseClient _mb_client("move_base", true);
+    _mb_client.sendGoalAndWait(MB_goal);
+    as->setSucceeded();
+
+
+}
 int main(int argc, char **argv) {
 
     ros::init(argc, argv, "move");
@@ -196,7 +262,7 @@ int main(int argc, char **argv) {
     }
 
     moveBaseClient_ptr=&moveBaseClient;
-    target_server_t server(n,"move",boost::bind(&drive_go_cb, _1, &server), false);
+    target_server_t server(n,"move",boost::bind(&driveCB, _1, &server), false);
     server.start();
     tf::TransformListener listener;
     listener_ptr=&listener;

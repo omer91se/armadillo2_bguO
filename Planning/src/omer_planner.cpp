@@ -10,8 +10,8 @@ ros::Publisher pub;
 void controlCB(const armadillo2_bgu::ActionFeedback::ConstPtr& msg){
     armadillo2_bgu::ActionDispatch reMsg;
     if(msg->status == "action achieved"){
-        ROS_INFO("Pouring2!");
-        reMsg.name = "pour";
+        ROS_INFO("Action2!");
+        reMsg.name = "moveNear";
         pub.publish(reMsg);
     }
    /* if(msg->status == "pour"){
@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 
 
     picked = false;
-    reMsg.name = "pick";
+    reMsg.name = "moveNear";
 
 
     ros::Subscriber sub = n.subscribe("/kcl_rosplan/action_feedback",10,controlCB);

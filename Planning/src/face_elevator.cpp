@@ -1,12 +1,11 @@
 #include <ros/ros.h>
 #include <actionlib/server/simple_action_server.h>
 #include <armadillo2_bgu/OperationAction.h>
-
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
-
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/DisplayTrajectory.h>
+
 
 
 typedef actionlib::SimpleActionServer<armadillo2_bgu::OperationAction> Server;

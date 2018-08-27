@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface 
-  tf 
+  tf
   geometry_msgs
 )
 find_package( OpenCV REQUIRED )
@@ -53,6 +53,21 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+add_executable(arm_pick src/arm_pick.cpp)
+target_link_libraries(  arm_pick  ${catkin_LIBRARIES})
+add_dependencies(arm_pick armadillo2_bgu_generate_messages_cpp)
+
+add_executable(arm_trajectory_give src/arm_trajectory_give.cpp)
+target_link_libraries(arm_trajectory_give  ${catkin_LIBRARIES})
+add_dependencies(arm_trajectory_give armadillo2_bgu_generate_messages_cpp)
+
+add_executable(arm_trajectory_close_gripper src/arm_trajectory_close_gripper.cpp)
+target_link_libraries(arm_trajectory_close_gripper  ${catkin_LIBRARIES})
+add_dependencies(arm_trajectory_close_gripper armadillo2_bgu_generate_messages_cpp)
+
+add_executable(arm_trajectory_open_gripper src/arm_trajectory_open_gripper.cpp)
+target_link_libraries(arm_trajectory_open_gripper  ${catkin_LIBRARIES})
+add_dependencies(arm_trajectory_open_gripper armadillo2_bgu_generate_messages_cpp)
 
 add_executable(master src/master.cpp)
 target_link_libraries(master ${catkin_LIBRARIES})
@@ -85,10 +100,6 @@ add_dependencies(object_detect armadillo2_bgu_generate_messages_cpp)
 add_executable(omer_planner src/omer_planner.cpp)
 target_link_libraries(  omer_planner  ${catkin_LIBRARIES})
 add_dependencies(omer_planner armadillo2_bgu_generate_messages_cpp)
-
-add_executable(arm_pick src/arm_pick.cpp)
-target_link_libraries(  arm_pick  ${catkin_LIBRARIES})
-add_dependencies(arm_pick armadillo2_bgu_generate_messages_cpp)
 
 add_executable(pour src/pour.cpp)
 target_link_libraries(  pour  ${catkin_LIBRARIES})
@@ -130,21 +141,16 @@ add_executable(give src/give.cpp)
 target_link_libraries(give  ${catkin_LIBRARIES})
 add_dependencies(give armadillo2_bgu_generate_messages_cpp)
 
-add_executable(arm_trajectory_give src/arm_trajectory_give.cpp)
-target_link_libraries(arm_trajectory_give  ${catkin_LIBRARIES})
-add_dependencies(arm_trajectory_give armadillo2_bgu_generate_messages_cpp)
 
-add_executable(arm_trajectory_close_gripper src/arm_trajectory_close_gripper.cpp)
-target_link_libraries(arm_trajectory_close_gripper  ${catkin_LIBRARIES})
-add_dependencies(arm_trajectory_close_gripper armadillo2_bgu_generate_messages_cpp)
-
-add_executable(arm_trajectory_open_gripper src/arm_trajectory_open_gripper.cpp)
-target_link_libraries(arm_trajectory_open_gripper  ${catkin_LIBRARIES})
-add_dependencies(arm_trajectory_open_gripper armadillo2_bgu_generate_messages_cpp)
 
 add_executable(moveNear src/moveNear.cpp)
 target_link_libraries(moveNear  ${catkin_LIBRARIES})
 add_dependencies(moveNear armadillo2_bgu_generate_messages_cpp)
+
+add_executable(master_old src/master_old.cpp)
+target_link_libraries(master_old  ${catkin_LIBRARIES})
+add_dependencies(master_old armadillo2_bgu_generate_messages_cpp)
+
 
 
 

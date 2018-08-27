@@ -11,6 +11,7 @@
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
+#include <tf/transform_datatypes.h>
 
 #define TABLE_NAME "table"
 
@@ -304,16 +305,30 @@ void executePickCB(const armadillo2_bgu::SimplePickGoalConstPtr& goal, pick_serv
     // get original goal point
     geometry_msgs::PointStamped origin_goal;
     origin_goal.header.frame_id = goal->frame_id;
+    //origin_goal.header.frame_id = "kinect2_link"; //doesnt work.
+
+    std::cout<<"goal->frame_id: "<<goal->frame_id<<std::endl;
+
     std::cout<<"goal->x:"<<goal->x<<"\ngoal->y"<<goal->y<<"\ngoal->z:"<<goal->z<<std::endl;
     origin_goal.point.x = goal->x;
     origin_goal.point.y = goal->y;
     origin_goal.point.z = goal->z;
+    //origin_goal.header.stamp = ros::Time::now() + ros::Duration(40);
     ROS_INFO("[arm_server]: goal is set ");
 
     // transfer original goal to in relation to base footprint
     geometry_msgs::PointStamped transformed_goal;
+
     try
     {
+         /* tf::StampedTransform transform;
+          transformer->lookupTransform("/base_footprint", origin_goal.header.frame_id, origin_goal.header.stamp, transform);
+          std::cout<<"transform: "<<transform.frame_id_<<std::endl;
+          transformed_goalsetData(transform * stamped_in);
+          stamped_out.stamp_ = transform.stamp_;
+          stamped_out.frame_id_ = target_frame;*/
+       ROS_INFO("[arm_server]: trying to transform 1 ");
+        transformer->waitForTransform("/base_footprint",origin_goal.header.frame_id,ros::Time::now(),ros::Duration(3.0));
         ROS_INFO("[arm_server]: trying to transform 2 ");
         transformer->transformPoint("/base_footprint", origin_goal, transformed_goal);
         ROS_INFO("[arm_server]: Transformed");
