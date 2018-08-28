@@ -2,7 +2,7 @@
 
 The speech bundle supports both voice recognition and text to speech.
 
-##bing2.py
+## bing2.py
 
 A module used to send a speech wav file to bing services and retrieve a string of the speech.
 Please set "BING_KEY" in ~/.bashrc before use.
