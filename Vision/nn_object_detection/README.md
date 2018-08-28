@@ -8,7 +8,7 @@ python3 server.py [\<port\>] # port is optional
 
 ### parse_query
 
-GET Request:
+GET Request
 
 \<server-ip-address\>:\<port\>/parse_query?query=show me the cup
 
