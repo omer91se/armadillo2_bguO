@@ -2,29 +2,36 @@
 
 The speech bundle supports both voice recognition and text to speech.
 
-## bing2.py
+# Voice Recognition
 
-A module used to send a speech wav file to bing services and retrieve a string of the speech.
-Please set "BING_KEY" in ~/.bashrc before use.
+Voice recognition uses Microsoft Bing API to recognize spoken words.  
+It then detects the command type based on the following supported commands:
 
-## objects_detection.py
+## Command:Regular Expressions
 
-A module used to send GET/POST requests to the server (code located in /Vision/nn_object_detection/nn_server.py)
+'command-bring-coffee': ['johnny.*coffee'],  
+'coffee-ready': ['coffee.*ready', 'here.*coffee'],  
+'floor-0': ['ground'],  
+'floor-1': ['first', 'floor.*one'],  
+'floor-2': ['second', 'floor.*two'],  
+'floor-3': ['third', 'floor.*three'],  
+'floor-4': ['fourth', 'floor.*four'],  
+'floor-5': ['fifth', 'floor.*five'],  
+'yes': ['yes', 'true', 'correct', 'exactly'],  
+'no': ['no', 'false', 'incorrect', 'untrue']
 
-parse_query() sends a GET request receiving a query string as a parameter. It returns the reconized subject (noun) and the appropriate maskrcnn label.
+To support a new command, edit voice_recognition.py and inside "def run(self):" of SpeechDetector search for the regular expressions dictionary above and add the new command. E.g.  
 
-processRequest() sends a POST request receving a raw RGB image as a parameter. It returns the recognized objects labels and their bounding-boxes in the given image.
+'no': ['no', 'false', 'incorrect', 'untrue'],  
+'maybe': ['maybe', 'not sure']}
 
-## scene_description.py
+## Usage
 
-processRequest() send a POST request receving a raw RGB image as a parameter. It returns an image description (text/string).
-It uses Microsoft Vision service, so setting MICROSOFT_VISION_KEY in ~/.bashrc is a prerequisite.
-
-## tts.py
-
-tts() receives a string and says it out loud (text-to-speech) using Bing service. Set BING_KEY in ~/.bashrc before use.
-ding() plays a ding sound, indicating it's time to talk to the microphone.
-
-## voice_recognition.py
-
-This module waits for speech from the user's microphone (wait in silence for the "ding" sound before start talking) and publish the recognized text to the "speech_text" ROS topic.
+Run "roscore" from the command line.  
+Then run "python voice_recognition.py".  
+Then run "rqt".  
+Then select Plugins -> Services -> Service Caller from the main menu of rqt.  
+Select "speech_to_text" from the dropdown menu and press "Call".  
+Now you have to be silent until you see "* Mic set up and listening." in the command line.  
+Then say a command such as: "Johnny bring me coffee" or "Coffee is ready".  
+You will see the recognized command in the command line.
