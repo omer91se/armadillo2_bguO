@@ -142,6 +142,8 @@ class SpeechDetector:
                         frames_per_buffer=self.CHUNK)
         loginfo("* Mic set up and listening. ")
         ding()
+        print("hiiii")
+        rospy.sleep(3)
         audio2send = []
         cur_data = ''  # current chunk of audio data
         rel = self.RECORD_RATE//self.CHUNK

@@ -3,17 +3,22 @@
 #include <armadillo2_bgu/OperationAction.h>
 #include <armadillo2_bgu/SimplePickAction.h>
 #include <actionlib/client/simple_action_client.h>
+#include <armadillo2_bgu/SimpleTargetAction.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 
 //not needed with dan's code
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
+
+#include <tf/transform_listener.h>
+#include <tf/transform_datatypes.h>
 
 typedef actionlib::SimpleActionServer<armadillo2_bgu::OperationAction> Server;
 typedef actionlib::SimpleActionClient<armadillo2_bgu::OperationAction> Client;
 typedef actionlib::SimpleActionClient<armadillo2_bgu::SimplePickAction> Client_pick;
-
+typedef actionlib::SimpleActionClient<armadillo2_bgu::SimpleTargetAction> target_client_t;
 
 float x;
 float y;
@@ -21,7 +26,26 @@ float z;
 float w;
 float h;
 bool gotXYZ = false;
-std::string frameId;
+std::string camFrameID = "kinect2_depth_optical_frame";
+bool moved = false;
+
+void move();
+
+void move(){
+    target_client_t target_client("move", true);
+    target_client.waitForServer();
+
+    armadillo2_bgu::SimpleTargetGoal goal_target;
+    std::cout<<"camFrameID: "<<camFrameID<<std::endl;
+    goal_target.frame_id = camFrameID;
+    goal_target.obj_name = "target";
+    goal_target.x = x;
+    goal_target.y = y;
+    goal_target.z = z;
+
+    target_client.sendGoal(goal_target);
+    target_client.waitForResult();
+}
 
 //with Dan's vision
 void observeDoneCB(const actionlib::SimpleClientGoalState& state,
@@ -52,23 +76,22 @@ void poseCB(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 
     x = msg->pose.position.x;
     y = msg->pose.position.y;
-    z = msg->pose.position.z+0.035;
+    z = msg->pose.position.z;
    //x = -0.112948;
    //y = 0.0866848;
    //z = 0.754;
 
     w = 0.022;
     h = 0.1;
-    frameId = msg->header.frame_id;
+    camFrameID = msg->header.frame_id;
     gotXYZ =true;
 }
 
 void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
-
     armadillo2_bgu::OperationGoal sendGoal;
     ROS_INFO("Starting pick sequence");
 
-   //with Dan's vision
+  // with Dan's vision
     Client client("observe", true);
     client.waitForServer();
     client.sendGoal(sendGoal, &observeDoneCB);
@@ -81,8 +104,38 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
 
 
 //Simple vision
-        //  while (!gotXYZ)
-        //     ros::Duration(0.5).sleep();
+//          while (!gotXYZ)
+//             ros::Duration(0.5).sleep();
+
+    // get original goal point
+    geometry_msgs::PointStamped origin_goal;
+    origin_goal.header.frame_id = camFrameID;
+
+    std::cout<<"goal->x:"<<x<<"\ngoal->y"<<y<<"\ngoal->z:"<<z<<std::endl;
+    origin_goal.point.x = x;
+    origin_goal.point.y = y;
+    origin_goal.point.z = z+0.035;
+    ROS_INFO("[arm_server]: goal is set ");
+
+    // transfer original goal to in relation to base footprint
+    geometry_msgs::PointStamped transformed_goal;
+
+    try
+    {
+        tf::TransformListener transformer;
+        ROS_INFO("[arm_server]: trying to transform 1 ");
+        std::cout<<"origin_goal.header.frame_id:"<<origin_goal.header.frame_id<<std::endl;
+        ros::Duration(5).sleep();
+        transformer.waitForTransform("/base_footprint",origin_goal.header.frame_id,ros::Time(),ros::Duration(15));
+        ROS_INFO("[arm_server]: trying to transform 2 ");
+        transformer.transformPoint("/base_footprint", origin_goal, transformed_goal);
+        ROS_INFO("[arm_server]: Transformed");
+    }
+    catch (tf::TransformException ex)
+    {
+        ROS_INFO("Exception!");
+        ROS_ERROR("%s",ex.what());
+    }
 
         ROS_INFO("[pick]: Calling arm_pick");
         Client_pick client_pick("arm_pick", true);
@@ -90,26 +143,31 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
 
         armadillo2_bgu::SimplePickGoal goal_pick;
 
-        goal_pick.frame_id = "kinect2_rgb_optical_frame";
+        goal_pick.frame_id = transformed_goal.header.frame_id;
         goal_pick.obj_name = "target";
-        goal_pick.x = x;
-        goal_pick.y = y;
-        goal_pick.z = z;
+        goal_pick.x = transformed_goal.point.x;
+        goal_pick.y = transformed_goal.point.y;
+        goal_pick.z = transformed_goal.point.z;
 
         goal_pick.h = h;
         goal_pick.w = w;
         // goal.= res->res;
-        client_pick.sendGoal(goal_pick);
+        actionlib::SimpleClientGoalState pick_status = client_pick.sendGoalAndWait(goal_pick);
 
 
-        if (!client_pick.waitForResult()) {
+        if (!(pick_status == actionlib::SimpleClientGoalState::SUCCEEDED)) {
             //what to do when pick fail
             ROS_INFO("Failed to pick");
+            if (!moved) {
+                move();
+                moved = true;
+                execute(goal,as);
+            }
+            else
+                as->setAborted();
         }
-        ros::Duration(3).sleep();
-
-
-        as->setSucceeded();
+        else
+            as->setSucceeded();
         ROS_INFO("Done Picking");
     }
 }
@@ -122,7 +180,7 @@ int main(int argc, char** argv)
   ros::NodeHandle n;
 
   //for simple vision
- // ros::Subscriber sub = n.subscribe("object_pose", 100, poseCB);
+  //ros::Subscriber sub = n.subscribe("object_pose", 100, poseCB);
 
   Server server(n, "pick", boost::bind(&execute, _1, &server), false);
   server.start();

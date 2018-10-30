@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
+from roslib import message
 import roslib
 roslib.load_manifest('armadillo2_bgu')
 import armadillo2_bgu
@@ -12,6 +13,7 @@ import sensor_msgs.point_cloud2 as pc2
 from armadillo2_bgu.msg import OperationAction
 from object_recognition.objects_detection import processRequest, parse_query
 from object_recognition.tts import tts
+
 
 from object_recognition.voice_recognition import SpeechDetector
 import math
@@ -31,9 +33,11 @@ image_file = os.path.dirname(os.path.abspath(__file__)) + '/two_cups.jpg'
 my_gui = None
 image_data = None
 server = None
+server_tts = None
 answer = None
 auto_speech = False
 points = None
+check_name = None
 
 #Saves the image from the robot's camera to a file.
 def image_callback(data):
@@ -47,7 +51,7 @@ def image_callback(data):
         imgSize = (data.width, data.height)
         rawData = data.data
         img = Image.frombytes('RGB', imgSize, rawData)
-        image_file = 'robot_image.png'
+        image_file = 'omer_image1.png'
         img.save(image_file)
         #image_data = data
 
@@ -62,6 +66,9 @@ def points_callback(data):
 
     global points
     points = data
+
+    print('DONE Processing points cloud DONE')
+
 
 #OMER:move to main.
 def caption_image():
@@ -112,6 +119,7 @@ class ObjectRecognizer:
         global image_file
         global answer
         query = query.replace('cap', 'cup')
+        query = query.replace('battle', 'bottle')
         print(query)
 
 
@@ -185,7 +193,28 @@ class ObjectRecognizer:
             sd = SpeechDetector()
             sd.run(self.answer_callback, (candidate_boxes, subject))
         else:
-            answer = 'object_not_found' 
+            answer = 'object_not_found'
+
+
+    def stt(self, query, ignore_params=None):
+        global image_file
+        global answer
+
+        print(query)
+
+        if query == '<unrecognized speech>':
+            #query='Show me the person'
+            return
+
+        lowercase_query = query.lower()
+        command = None
+
+
+        if 'release' in lowercase_query or 'open' in lowercase_query: # open grip
+            command = 'open'
+        elif 'close' in lowercase_query: # close grip
+            command = 'close'
+
 
     #Disambiguation.
     def answer_callback(self, answer, candidate_boxes_and_subject):
@@ -236,7 +265,7 @@ class ObjectRecognizer:
         global points
 
         coordinate = [int(point[0]), int(point[1])]
-        generator = pc2.read_points(points, field_names=['x', 'y', 'z'], uvs=[coordinate])
+        generator = pc2.read_points(points, field_names=['x', 'y', 'z'],skip_nans=False, uvs=[coordinate])
 
         return generator.next()
 
@@ -268,6 +297,27 @@ class ObjectRecognizer:
             sd = SpeechDetector()
             sd.run(self.query_callback)
 
+
+
+def text_check(goal):
+
+    #The string to check
+    answer = goal.data
+    if answer == '<unrecognized speech>':
+        return
+
+    lowercase_query = answer.lower()
+    _result = armadillo2_bgu.msg.OperationResult()
+
+    command = None
+
+    if 'release' in lowercase_query or 'open' in lowercase_query: # open grip
+        command = 'open'
+
+    _result.data = command
+
+    server.set_succeeded(_result)
+
 #decides whether to use STT or written query.
 def execute(goal):
     global auto_speech
@@ -275,6 +325,7 @@ def execute(goal):
     global my_gui
     global server
     global answer
+
 
     _result = armadillo2_bgu.msg.OperationResult()
     rospy.loginfo("[run_object_rec]: Observing...")
@@ -286,7 +337,7 @@ def execute(goal):
 
     object_recognizer = ObjectRecognizer()
     
-    rospy.loginfo("starting demo")
+    rospy.loginfo("starting")
 
     object_recognizer.start_demo()
 
@@ -303,6 +354,11 @@ def execute(goal):
     else: #could not find object
         server.set_aborted()
     
+def ttsCB(goal):
+    global server_tts
+    tts(goal.data)
+    _result = armadillo2_bgu.msg.OperationResult()
+    server_tts.set_succeeded(_result)
 
 
 	
@@ -318,9 +374,16 @@ def main():
     caption_image()
 
     global server
+    global server_tts
     rospy.init_node('observe')
+
     server = actionlib.SimpleActionServer('observe', OperationAction,execute, False)
+    server_tts = actionlib.SimpleActionServer('describe_wuc', OperationAction,ttsCB, False)
+    server_stt = actionlib.SimpleActionServer('text_check', OperationAction,text_check, False)
+
+    server_stt.start()
     server.start()
+    server_tts.start()
     rospy.spin()
 
 

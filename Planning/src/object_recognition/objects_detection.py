@@ -1,5 +1,5 @@
 from __future__ import print_function
-
+from roslib import message
 import os
 import requests
 import json
@@ -33,6 +33,7 @@ def processRequest(data):
 
     string_io = StringIO(response.content)
     json_result = json.load(string_io)
+    print(json_result)
 
     classes_dict = {}
     for object in json_result['class_names']:
@@ -43,6 +44,8 @@ def processRequest(data):
 
     objects_string = ''
     for i, object in enumerate(classes_dict):
+        print("object: "+object)
+        print("classes: " +str(classes_dict))
         if classes_dict[object] == 1:
             objects_string += str(classes_dict[object]) + ' ' + object.split('|')[0]
         else:

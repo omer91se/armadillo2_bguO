@@ -16,11 +16,13 @@ typedef actionlib::SimpleActionClient<armadillo2_bgu::SimpleTargetAction> target
 float x;
 float y;
 float z;
+float h;
+float w;
 bool gotXYZ = false;
 std::string frameId;
 
 //With Dan's code
-/*
+
 void observeDoneCB(const actionlib::SimpleClientGoalState& state,
                    const armadillo2_bgu::OperationResultConstPtr& res){
     std::string x1 = ((res->res).substr((res->res).find('x')+1,(res->res).find('y')));
@@ -36,14 +38,14 @@ void observeDoneCB(const actionlib::SimpleClientGoalState& state,
     w = std::stoi (w1);
 
     std::string h1 = ((res->res).substr((res->res).find('h')+1,(res->res).find('\0')));
-    w = std::stoi (w1);
-}*/
+    h = std::stoi (w1);
+}
 
 void poseCB(const geometry_msgs::PoseStamped::ConstPtr& msg) {
 
     x = msg->pose.position.x;
     y = msg->pose.position.y;
-    z = msg->pose.position.z-0.55;
+    z = msg->pose.position.z;
     //x = -0.112948;
     //y = 0.0866848;
     //z = 0.754;
@@ -57,18 +59,19 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as) {
 
     armadillo2_bgu::OperationGoal sendGoal;
     ROS_INFO("[moveNear]: Starting move sequence");
+
     while (!gotXYZ)
         ros::Duration(0.5).sleep();
 
-    /*  Client client("observe", true);
-      client.waitForServer();
-
-      client.sendGoal(sendGoal,&observeDoneCB);
-      //client.sendGoal(sendGoal);
-      if(!client.waitForResult()){
-          ROS_INFO("Vision failed");
-      }
-      else{*/
+//      Client client("observe", true);
+//      client.waitForServer();
+//      ROS_INFO("Sending goal");
+//      client.sendGoal(sendGoal,&observeDoneCB);
+//      //client.sendGoal(sendGoal);
+//      if(!client.waitForResult()){
+//          ROS_INFO("Vision failed");
+//      }
+//      else{
 
     //armadillo2_bgu::OperationResultConstPtr res = client.getResult();
 
@@ -81,12 +84,14 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as) {
     goal_target.x = x;
     goal_target.y = y;
     goal_target.z = z;
+
     target_client.sendGoal(goal_target);
     target_client.waitForResult();
+
     as->setSucceeded();
     ROS_INFO("[moveNear]: Done moving");
 
-//}
+//    }
 }
 
 int main(int argc, char** argv)
@@ -97,7 +102,7 @@ int main(int argc, char** argv)
     //for simple vision
     ros::Subscriber sub = n.subscribe("object_pose", 100, poseCB);
 
-    Server server(n, "undock", boost::bind(&execute, _1, &server), false);
+    Server server(n, "pick", boost::bind(&execute, _1, &server), false);
     server.start();
 
     ros::AsyncSpinner spinner(2);

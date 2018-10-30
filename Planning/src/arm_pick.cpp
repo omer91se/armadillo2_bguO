@@ -23,7 +23,7 @@ typedef actionlib::SimpleActionServer<armadillo2_bgu::SimpleTargetAction> target
 // moveit client
 typedef actionlib::SimpleActionClient<moveit_msgs::PickupAction> pick_client_t;
 typedef actionlib::SimpleActionClient<moveit_msgs::PlaceAction> place_client_t;
-
+typedef actionlib::SimpleActionClient<armadillo2_bgu::SimpleTargetAction> target_client_t;
 
 
 moveit::planning_interface::PlanningSceneInterface *planning_scene_ptr = nullptr;
@@ -43,7 +43,22 @@ bool executing_pick = false;
 bool executing_place = false;
 bool executing_target = false;
 
+void move(std::string frameId,int x,int y,int z);
 
+void move(std::string frameId,int x,int y,int z){
+    target_client_t target_client("move", true);
+    target_client.waitForServer();
+
+    armadillo2_bgu::SimpleTargetGoal goal_target;
+    goal_target.frame_id = frameId;
+    goal_target.obj_name = "target";
+    goal_target.x = x;
+    goal_target.y = y;
+    goal_target.z = z;
+
+    target_client.sendGoal(goal_target);
+    target_client.waitForResult();
+}
 // adding cylinder to planning scene
 void addCylinderToScene(std::string name,
                         double x,
@@ -141,7 +156,6 @@ moveit_msgs::PickupGoal buildPickGoal(const std::string& obj_name)
 
     moveit_msgs::Grasp g;
     g.max_contact_force = 1.0;
-
     g.pre_grasp_approach.direction.header.frame_id = "/base_footprint";
     g.pre_grasp_approach.direction.vector.x = 1.0;
     g.pre_grasp_approach.min_distance = 0.01;
@@ -302,60 +316,24 @@ void executePickCB(const armadillo2_bgu::SimplePickGoalConstPtr& goal, pick_serv
 
     obj_name = goal->obj_name;
 
-    // get original goal point
-    geometry_msgs::PointStamped origin_goal;
-    origin_goal.header.frame_id = goal->frame_id;
-    //origin_goal.header.frame_id = "kinect2_link"; //doesnt work.
-
-    std::cout<<"goal->frame_id: "<<goal->frame_id<<std::endl;
-
-    std::cout<<"goal->x:"<<goal->x<<"\ngoal->y"<<goal->y<<"\ngoal->z:"<<goal->z<<std::endl;
-    origin_goal.point.x = goal->x;
-    origin_goal.point.y = goal->y;
-    origin_goal.point.z = goal->z;
-    //origin_goal.header.stamp = ros::Time::now() + ros::Duration(40);
-    ROS_INFO("[arm_server]: goal is set ");
-
-    // transfer original goal to in relation to base footprint
-    geometry_msgs::PointStamped transformed_goal;
-
-    try
-    {
-         /* tf::StampedTransform transform;
-          transformer->lookupTransform("/base_footprint", origin_goal.header.frame_id, origin_goal.header.stamp, transform);
-          std::cout<<"transform: "<<transform.frame_id_<<std::endl;
-          transformed_goalsetData(transform * stamped_in);
-          stamped_out.stamp_ = transform.stamp_;
-          stamped_out.frame_id_ = target_frame;*/
-       ROS_INFO("[arm_server]: trying to transform 1 ");
-        transformer->waitForTransform("/base_footprint",origin_goal.header.frame_id,ros::Time::now(),ros::Duration(3.0));
-        ROS_INFO("[arm_server]: trying to transform 2 ");
-        transformer->transformPoint("/base_footprint", origin_goal, transformed_goal);
-        ROS_INFO("[arm_server]: Transformed");
-    }
-    catch (tf::TransformException ex)
-    {
-        ROS_INFO("Exception!");
-        ROS_ERROR("%s",ex.what());
-    }
-
     // visualize object in planning scene
     addCylinderToScene(goal->obj_name,
-                       transformed_goal.point.x,
-                       transformed_goal.point.y,
-                       transformed_goal.point.z,
+                       goal->x,
+                       goal->y,
+                       goal->z,
                        goal->h,
                        goal->w);
 
-    double table_z = transformed_goal.point.z - (goal->h / 2.0)/* - 0.01*/;
+    double table_z = goal->z - (goal->h / 2.0)/* - 0.01*/;
     ROS_INFO("[arm_server]: 1");
     addBoxToScene(TABLE_NAME,
-                  transformed_goal.point.x,
-                  transformed_goal.point.y,
+                  goal->x,
+                  goal->y,
                   table_z,
                   0.3,
                   0.3,
                   0.01);
+
 
     // build and execute pick
     moveit_msgs::PickupGoal pick_goal = buildPickGoal(goal->obj_name);
@@ -381,6 +359,16 @@ void executePickCB(const armadillo2_bgu::SimplePickGoalConstPtr& goal, pick_serv
     }
 
     executing_pick = false;
+
+    moveit_msgs::CollisionObject remove_object;
+    remove_object.id = TABLE_NAME;
+    remove_object.header.frame_id = "/base_footprint";
+    remove_object.operation = remove_object.REMOVE;
+
+
+    remove_object.id = goal->obj_name;
+    remove_object.header.frame_id = "/base_footprint";
+    remove_object.operation = remove_object.REMOVE;
 
 }
 /***************************************************************************/
@@ -464,29 +452,21 @@ int main(int argc, char** argv)
     spinner.start();
 
     // we need move group to get gripper current point, and for target server
-    ROS_INFO("1");
     moveit::planning_interface::MoveGroupInterface group("arm");
-    ROS_INFO("2");
     group_ptr = &group;
     group.setStartStateToCurrentState();
-    ROS_INFO("3");
     group.setPlannerId("RRTConnectkConfigDefault");
-    ROS_INFO("4");
     group.setPoseReferenceFrame("/base_footprint");
-    ROS_INFO("5");
     group.setMaxVelocityScalingFactor(1.0);
     group.setNumPlanningAttempts(5);
     group.setPlanningTime(5.0);
-    ROS_INFO("6");
     //It is important to provide some tolerance
     group.setGoalPositionTolerance(0.01);
     group.setGoalOrientationTolerance(0.02);
     //group_arm_torso.setGoalJointTolerance(0.01);
     //group_arm_torso.setGoalTolerance(0.05);
-    ROS_INFO("7");
     pick_server_t pick_server(nh, "arm_pick", boost::bind(&executePickCB, _1, &pick_server), false);
     pick_server.start();
-    ROS_INFO("8");
     place_server_t place_server(nh, "simple_place", boost::bind(&executePlaceCB, _1, &place_server), false);
     place_server.start();
 

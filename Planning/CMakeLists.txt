@@ -30,11 +30,13 @@ add_service_files(
 ## Generate actions in the 'action' folder
 add_action_files(
   DIRECTORY action
-  	 FILES Operation.action 
-	 VocalCmd.action
+  	 FILES 
+         Operation.action 
+	     VocalCmd.action
          SimplePick.action
          SimplePlace.action
          SimpleTarget.action
+         Data_base.action 
 )
 
 
@@ -121,9 +123,9 @@ add_executable(face_elevator src/face_elevator.cpp)
 target_link_libraries(face_elevator  ${catkin_LIBRARIES})
 add_dependencies(face_elevator armadillo2_bgu_generate_messages_cpp)
 
-add_executable(move-away-elev src/move-away-elev.cpp)
-target_link_libraries(move-away-elev   ${catkin_LIBRARIES})
-add_dependencies(move-away-elev armadillo2_bgu_generate_messages_cpp)
+#add_executable(move-away-elev src/move-away-elev.cpp)
+#target_link_libraries(move-away-elev   ${catkin_LIBRARIES})
+#add_dependencies(move-away-elev armadillo2_bgu_generate_messages_cpp)
 
 add_executable(move-elv-2-floor src/move-elv-2-floor.cpp)
 target_link_libraries(move-elv-2-floor   ${catkin_LIBRARIES})
@@ -150,6 +152,10 @@ add_dependencies(moveNear armadillo2_bgu_generate_messages_cpp)
 add_executable(master_old src/master_old.cpp)
 target_link_libraries(master_old  ${catkin_LIBRARIES})
 add_dependencies(master_old armadillo2_bgu_generate_messages_cpp)
+
+add_executable(data_base_node src/data_base_node.cpp)
+target_link_libraries(data_base_node  ${catkin_LIBRARIES})
+add_dependencies(data_base_node armadillo2_bgu_generate_messages_cpp)
 
 
 

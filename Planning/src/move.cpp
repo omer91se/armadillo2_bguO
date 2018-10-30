@@ -41,6 +41,8 @@
 
 #include <armadillo2_bgu/OperationAction.h>
 #include <actionlib/server/simple_action_server.h>
+#include <visualization_msgs/Marker.h>
+
 
 typedef actionlib::SimpleActionServer<armadillo2_bgu::SimpleTargetAction> target_server_t;
 
@@ -48,24 +50,26 @@ typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseCl
 
 typedef actionlib::SimpleActionClient<armadillo2_bgu::OperationAction> Client;
 
+
 tf::TransformListener *listener_ptr;
 
 //move_base_msgs::MoveBaseGoal get_pre_pick_pose(geometry_msgs::Point point);
 //bool base_cmd(move_base_msgs::MoveBaseGoal goal);
 
 bool build_goal(move_base_msgs::MoveBaseGoal &target, geometry_msgs::Pose &object);
+void markRVIZ(move_base_msgs::MoveBaseGoal target);
 
 MoveBaseClient *moveBaseClient_ptr;
 
 bool moving=false;
 std::string object_name;
-double base_distance_from_object=0.55;
 
 float x;
 float y;
 float z;
 bool gotXYZ = false;
 std::string frameId;
+ros::Publisher marker_pub;
 
 //With Dan's code.
 /*
@@ -195,37 +199,117 @@ bool base_cmd(move_base_msgs::MoveBaseGoal goal) {
     }
 }
 */
+void markRVIZ(move_base_msgs::MoveBaseGoal target, int id,std::string frame_id){
+    std::cout<<"goal->x:"<<target.target_pose.pose.position.x<<"\ngoal->y"<<target.target_pose.pose.position.y<<"\ngoal->z:"<<target.target_pose.pose.position.z<<std::endl;
+    uint32_t shape = visualization_msgs::Marker::ARROW;
+    bool saw_arrow = false;
+    char saw;
+    ros::Rate r(1);
 
+    while(!saw_arrow) {
+        visualization_msgs::Marker marker;
+        marker.header.frame_id = frame_id;
+        marker.header.stamp = ros::Time::now();
+        marker.ns = "basic_shapes";
+        marker.id = 0;
+        marker.type = shape;
+        marker.action = visualization_msgs::Marker::ADD;
+
+        //position
+        marker.pose.position.x = target.target_pose.pose.position.x;
+        marker.pose.position.y = target.target_pose.pose.position.y;
+        // marker.pose.position.z = target.target_pose.pose.position.z;
+        marker.pose.orientation.x = target.target_pose.pose.orientation.x;
+        marker.pose.orientation.y = target.target_pose.pose.orientation.y;
+        marker.pose.orientation.z = target.target_pose.pose.orientation.z;
+        marker.pose.orientation.w = target.target_pose.pose.orientation.w;
+
+        // Set the scale of the marker -- 1x1x1 here means 1m on a side
+        marker.scale.x = 0.3;
+        marker.scale.y = 0.3;
+        marker.scale.z = 0.2;
+
+        // Set the color -- be sure to set alpha to something non-zero!
+        marker.color.r = 0.0f +id;
+        marker.color.g = 1.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0;
+
+        marker.lifetime = ros::Duration();
+
+        while (marker_pub.getNumSubscribers() < 1) {
+            if (!ros::ok()) {
+                return;
+            }
+            ROS_WARN_ONCE("Please create a subscriber to the marker");
+            sleep(1);
+        }
+        marker_pub.publish(marker);
+        std::cout<<"Did you see the arrow?[y/n] "<<std::endl;
+        std::cin>>saw;
+        if (saw == 'y')
+            saw_arrow = true;
+
+        r.sleep();
+    }
+
+}
 
 bool build_goal(move_base_msgs::MoveBaseGoal &target, geometry_msgs::Pose &object){
-    // get robot position
+
+    std::cout<<"object.position.x:"<<object.position.x<<"\ngoal->y"<<object.position.y<<"\ngoal->z:"<<object.position.z<<std::endl;
     tf::TransformListener _tf_listener;
-    _tf_listener.waitForTransform("map", "base_link", ros::Time(0), ros::Duration(5.0));
 
-    tf::StampedTransform robot_transform;
-    _tf_listener.lookupTransform("map", "base_link", ros::Time(0), robot_transform);
+    _tf_listener.waitForTransform(frameId, "base_link", ros::Time(0), ros::Duration(5.0));
+    geometry_msgs::PointStamped origin_goal;
 
-//    geometry_msgs::Pose robot;
-//    robot.position.x = robot_transform.getOrigin().x();
-//    robot.position.y = robot_transform.getOrigin().y();
-//    robot.position.z = 0.0;
+    origin_goal.header.frame_id = frameId;
 
-    // if needed, get robot's new pose in radius from goal
-    geometry_msgs::Pose dest;
-    dest = object;
+    tf::StampedTransform transform;
+
+    _tf_listener.lookupTransform("base_link", "base_link", ros::Time(0), transform);
+    origin_goal.point.x = object.position.x;
+    origin_goal.point.y = object.position.y;
+    origin_goal.point.z = object.position.z;
+    std::cout<<"frameId: "<<frameId<<std::endl;
+
+
+    geometry_msgs::PointStamped transformed_goal;
+    _tf_listener.transformPoint("/base_link", origin_goal, transformed_goal);
+
 
     // build goal and return
-    target.target_pose.header.frame_id = "kinect2_rgb_optical_frame";
+    target.target_pose.header.frame_id = "base_link";
+
     target.target_pose.header.stamp = ros::Time::now();
 
-    target.target_pose.pose.position.x = dest.position.x-0.55;
-    target.target_pose.pose.position.y = dest.position.y;
-    target.target_pose.pose.position.z = 0.0;
+    target.target_pose.pose.position.x = transformed_goal.point.x-0.4;
+    target.target_pose.pose.position.y = transformed_goal.point.y;
+    //std::cout<<"target.target_pose.pose.position.z: "<<target.target_pose.pose.position.z;
+    //target.target_pose.pose.position.z = transformed_goal.point.z;
 
-    target.target_pose.pose.orientation.x = dest.orientation.x;
-    target.target_pose.pose.orientation.y = dest.orientation.y;
-    target.target_pose.pose.orientation.z = dest.orientation.z;
-    target.target_pose.pose.orientation.w = dest.orientation.w;
+
+//    tf::Vector3 v_obj(object.position.x,object.position.y,object.position.z);
+//    tf::Vector3 v_base =transform.getOrigin();
+//    tf::Vector3 v=v_obj-v_base;
+//    double yaw=atan2(v.y(),v.x());
+//
+//    tf::Quaternion q;
+//    q.setRPY(0.0, 0, yaw);
+//    transform.setRotation(q);
+//    target.target_pose.pose.orientation.x = transform.getRotation().x();
+//    target.target_pose.pose.orientation.y = transform.getRotation().y();
+//    target.target_pose.pose.orientation.z = transform.getRotation().z();
+//    target.target_pose.pose.orientation.w = transform.getRotation().w();
+    tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, 0);
+    q.normalize();
+
+
+    target.target_pose.pose.orientation.x = q.x();
+    target.target_pose.pose.orientation.y = q.y();
+    target.target_pose.pose.orientation.z = q.z();
+    target.target_pose.pose.orientation.w = q.w();
+    markRVIZ(target,0,target.target_pose.header.frame_id);
 
     return true;
 }
@@ -245,8 +329,17 @@ void driveCB(const armadillo2_bgu::SimpleTargetGoalConstPtr& goal, target_server
         return;
     }
     MoveBaseClient _mb_client("move_base", true);
+
+//    //for saftey
+//    char ready;
+//    std::cout<<"[move]: enter any char to move"<<std::endl;
+//    std::cin>>ready;
+
     _mb_client.sendGoalAndWait(MB_goal);
-    as->setSucceeded();
+    if(_mb_client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+        as->setSucceeded();
+    else
+        as->setAborted();
 
 
 }
@@ -254,6 +347,8 @@ int main(int argc, char **argv) {
 
     ros::init(argc, argv, "move");
     ros::NodeHandle n;
+
+    marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
     MoveBaseClient moveBaseClient("move_base", true);
     //wait for the action server to come up
