@@ -8,6 +8,16 @@ _url = 'https://westeurope.api.cognitive.microsoft.com/vision/v1.0/analyze'
 _key = os.getenv('MICROSOFT_VISION_KEY', '')
 _maxNumRetries = 10
 
+
+"""
+Retrieve image raw data and return image description
+Usage example:
+        with open(image_file, 'rb') as f:
+            data = f.read()
+
+        response = processRequest(data)
+        print(response)
+"""
 def processRequest(data):
     """
     Helper function to process the request to Project Oxford

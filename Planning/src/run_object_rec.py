@@ -1,18 +1,22 @@
 #!/usr/bin/env python
 
 import rospy
+from roslib import message
 import roslib
 roslib.load_manifest('armadillo2_bgu')
 import armadillo2_bgu
 import actionlib
 from PIL import Image, ImageTk, ImageDraw
 from sensor_msgs.msg import Image as SensorImage
+from sensor_msgs.msg import PointCloud2
 import sensor_msgs.point_cloud2 as pc2
 from armadillo2_bgu.msg import OperationAction
 from object_recognition.objects_detection import processRequest, parse_query
 from object_recognition.tts import tts
 
+
 from object_recognition.voice_recognition import SpeechDetector
+import math
 
 from Tkinter import Tk, Label, Button
 
@@ -22,13 +26,20 @@ from time import sleep
 
 import os
 
+import subprocess
+
 done = False
 image_file = os.path.dirname(os.path.abspath(__file__)) + '/two_cups.jpg'
 my_gui = None
 image_data = None
 server = None
+server_tts = None
 answer = None
+auto_speech = False
+points = None
+check_name = None
 
+#Saves the image from the robot's camera to a file.
 def image_callback(data):
     global my_gui
     global done
@@ -40,18 +51,31 @@ def image_callback(data):
         imgSize = (data.width, data.height)
         rawData = data.data
         img = Image.frombytes('RGB', imgSize, rawData)
-        image_file = 'robot_image.png'
+        image_file = 'omer_image1.png'
         img.save(image_file)
-        image_data = data
+        #image_data = data
 
-        image = Image.open(image_file)
-        photo = ImageTk.PhotoImage(image)
-        my_gui.label.configure(image=photo)
-        my_gui.label.image = photo  # keep a reference!
+        #image = Image.open(image_file)
+        #photo = ImageTk.PhotoImage(image)
+        #my_gui.label.configure(image=photo)
+        #my_gui.label.image = photo  # keep a reference!
 
+#Saves the points from the robot's camera to a file.
+def points_callback(data):
+    print('Processing points cloud...')
+
+    global points
+    points = data
+
+    print('DONE Processing points cloud DONE')
+
+
+#OMER:move to main.
 def caption_image():
     #Armadillo 1 and 2:
-    rospy.Subscriber("kinect2/qhd/image_color", SensorImage, image_callback)
+    rospy.Subscriber("kinect2/hd/image_color", SensorImage, image_callback)
+
+
     #Old:
     #rospy.Subscriber("/front_camera/image_raw", SensorImage, image_callback)
 
@@ -59,19 +83,19 @@ def caption_image():
     #rospy.spin()
 
 
-class MyFirstGUI:
-    def __init__(self, master, image_file):
-        self.master = master
-        master.title("Demo")
-
-        self.start_demo_button = Button(master, text="Start", command=self.start_demo)
-        self.start_demo_button.pack()
-
-        image = Image.open(image_file)
-        photo = ImageTk.PhotoImage(image)
-        self.label = Label(image=photo)
-        self.label.image = photo  # keep a reference!
-        self.label.pack()
+class ObjectRecognizer:
+    # def __init__(self, master, image_file):
+    #     self.master = master
+    #     master.title("Demo")
+    #
+    #     self.start_demo_button = Button(master, text="Start", command=self.start_demo)
+    #     self.start_demo_button.pack()
+    #
+    #     image = Image.open(image_file)
+    #     photo = ImageTk.PhotoImage(image)
+    #     self.label = Label(image=photo)
+    #     self.label.image = photo  # keep a reference!
+    #     self.label.pack()
 
     def draw_box(self, y1, x1, y2, x2):
         global image_file
@@ -84,18 +108,45 @@ class MyFirstGUI:
 
         del draw
 
-        photo = ImageTk.PhotoImage(image)
-        self.label.configure(image=photo)
-        self.label.image = photo  # keep a reference!
+        image.save(image_file)
 
+        # photo = ImageTk.PhotoImage(image)
+        # self.label.configure(image=photo)
+        # self.label.image = photo  # keep a reference!
+
+    #Parse query, and retrieve recognized object coordinates.
     def query_callback(self, query, ignore_params=None):
         global image_file
         global answer
         query = query.replace('cap', 'cup')
+        query = query.replace('battle', 'bottle')
         print(query)
+
 
         if query == '<unrecognized speech>':
             #query='Show me the person'
+            return
+
+        lowercase_query = query.lower()
+        command = None
+
+        #if 'give' in lowercase_query or 'open' in lowercase_query:
+        #    command = 'give'
+        #    cmd = "rosrun armadillo2_bgu arm_trajectory_give"
+        # elif 'take' in lowercase_query:
+        #     command = 'take'
+        #     cmd = "rosrun armadillo2_bgu arm_trajectory_take"
+        if 'release' in lowercase_query or 'open' in lowercase_query: # open grip
+            command = 'open'
+            cmd = "rosrun armadillo2_bgu arm_trajectory_open_gripper"
+        elif 'close' in lowercase_query: # close grip
+            command = 'close'
+            cmd = "rosrun armadillo2_bgu arm_trajectory_close_gripper"
+        # elif ('push' in lowercase_query or 'press' in lowercase_query) and 'button' in lowercase_query:  # push button
+        #     pass #command = 'push'
+
+        if command:
+            subprocess.Popen(cmd, shell=True)
             return
 
         parsed_query = parse_query(query)
@@ -114,9 +165,10 @@ class MyFirstGUI:
         print(response)
 
         candidate_indices = []
-
+        #class_name are the object that were found.
         for i, class_name in enumerate(response['result']['class_names']):
             if class_name.startswith(label + '|'):
+                #adds all the objects that were requested to "candidate_indices" the indices correspond to the indices at "yx_boxes"
                 candidate_indices.append(i)
         if len(candidate_indices) == 0:
             tts("I see no " + subject)
@@ -134,15 +186,37 @@ class MyFirstGUI:
                 x_center = (x1 + x2) / 2
 
                 candidate_boxes.append((y1, x1, y2, x2, x_center))
-
+            #sort the objects by their centers. smaller = left.
             candidate_boxes.sort(key=lambda box: box[4])
 
             tts("Do you mean the " + subject + " on the left or the " + subject + " on the right?")
             sd = SpeechDetector()
             sd.run(self.answer_callback, (candidate_boxes, subject))
         else:
-            answer = 'object_not_found' 
+            answer = 'object_not_found'
 
+
+    def stt(self, query, ignore_params=None):
+        global image_file
+        global answer
+
+        print(query)
+
+        if query == '<unrecognized speech>':
+            #query='Show me the person'
+            return
+
+        lowercase_query = query.lower()
+        command = None
+
+
+        if 'release' in lowercase_query or 'open' in lowercase_query: # open grip
+            command = 'open'
+        elif 'close' in lowercase_query: # close grip
+            command = 'close'
+
+
+    #Disambiguation.
     def answer_callback(self, answer, candidate_boxes_and_subject):
         print(answer)
         if answer=='<unrecognized speech>':
@@ -165,37 +239,44 @@ class MyFirstGUI:
         tts("Here is the " + candidate_boxes_and_subject[1])
         self.return_point(box)
 
+    #Returns the x,y,z,w,h in meters
     def return_point(self, box):
         global answer
-
-        point = ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2)
+        #the values below are measured in pixels.
+        #calculate the center of the box
+        point = ((box[1] + box[3]) / 2, (box[0] + box[2]) / 2)#(x,y)
+        #calculate width and height
         width = (box[3] - box[1]) / 2
         height = (box[2] - box[0]) / 2
 
-        #point_xyz = self.get_transform(point)
-        #print(point_xyz)
-        #point_xyz['z']
+        print('My x,y:', point)
 
-        answer = ('x' + str(point[0]) + 'y' + str(point[1]) + 'z' + str(0) + \
-                 'w' + str(width) + 'h' + str(height), \
-                 'IN PICK: Object placed in: x:' + str(point[0]) + ' y:' + str(point[1]) + ' z:' + str(0) + \
+        #calculate (x,y,z) in robot's POV (meters not pixels).
+        point_xyz = self.get_transform(point)
+        print(point_xyz)
+
+        answer = ('x' + str(point_xyz[0]) + 'y' + str(point_xyz[1]) + 'z' + str(point_xyz[2]) + \
+                 'w' + str(width) + 'h' + str(height),
+                 '[run_object_rec]: Object placed in: x:' + str(point_xyz[0]) + ' y:' + str(point_xyz[1]) + ' z:' + str(point_xyz[2]) + \
                  ' w:' + str(width) + ' h:' + str(height))
 
-
+    #Retrieve the x,y in pixels and returns x,y,z in meters.
     def get_transform(self, point):
-        global image_data
+        global points
 
         coordinate = [int(point[0]), int(point[1])]
-        generator = pc2.read_points(image_data, field_names=['x', 'y', 'z'], uvs=[coordinate])
+        generator = pc2.read_points(points, field_names=['x', 'y', 'z'],skip_nans=False, uvs=[coordinate])
 
         return generator.next()
 
-
+    #Starts the demo, gets the query.
     def start_demo(self):
-        global image_file
+        global auto_speech
 
-        with open(image_file, 'rb') as f:
-            data = f.read()
+        #global image_file
+
+        #with open(image_file, 'rb') as f:
+        #    data = f.read()
 
         #desc = scene_description.processRequest(data)
         #desc = desc['description']['captions'][0]['text']
@@ -205,29 +286,60 @@ class MyFirstGUI:
         #response = processRequest(data)
         #print(response)
         #tts('I see ' + response['objects_string'])
-        
-        tts('Hi there! How can I help?')
 
-        sd = SpeechDetector()
-        sd.run(self.query_callback)
+        if auto_speech:
+            query = raw_input('Enter your query:')
 
-def execute(goal):
+            self.query_callback(query)
+        else:
+            tts('Hi there! How can I help?')
 
+            sd = SpeechDetector()
+            sd.run(self.query_callback)
+
+
+
+def text_check(goal):
+
+    #The string to check
+    answer = goal.data
+    if answer == '<unrecognized speech>':
+        return
+
+    lowercase_query = answer.lower()
     _result = armadillo2_bgu.msg.OperationResult()
-    rospy.loginfo("IN PICK: Observing...")
-    
+
+    command = None
+
+    if 'release' in lowercase_query or 'open' in lowercase_query: # open grip
+        command = 'open'
+
+    _result.data = command
+
+    server.set_succeeded(_result)
+
+#decides whether to use STT or written query.
+def execute(goal):
+    global auto_speech
     global image_file
     global my_gui
     global server
     global answer
 
-    root = Tk()
 
-    my_gui = MyFirstGUI(root, image_file)
+    _result = armadillo2_bgu.msg.OperationResult()
+    rospy.loginfo("[run_object_rec]: Observing...")
+    response = raw_input('***Do you want to speak? (y or n)')
+    if response == 'n':
+        auto_speech = True
 
-    caption_image()
+    #root = Tk()
+
+    object_recognizer = ObjectRecognizer()
     
-    my_gui.start_demo()    
+    rospy.loginfo("starting")
+
+    object_recognizer.start_demo()
 
     #root.mainloop()
     
@@ -242,6 +354,11 @@ def execute(goal):
     else: #could not find object
         server.set_aborted()
     
+def ttsCB(goal):
+    global server_tts
+    tts(goal.data)
+    _result = armadillo2_bgu.msg.OperationResult()
+    server_tts.set_succeeded(_result)
 
 
 	
@@ -249,10 +366,24 @@ def execute(goal):
 def main():
     rospy.loginfo("***************")
 
+    rospy.loginfo("Caption_image")
+
+    print "*** Getting points cloud..."
+
+    rospy.Subscriber("kinect2/hd/points", PointCloud2, points_callback)
+    caption_image()
+
     global server
+    global server_tts
     rospy.init_node('observe')
+
     server = actionlib.SimpleActionServer('observe', OperationAction,execute, False)
+    server_tts = actionlib.SimpleActionServer('describe_wuc', OperationAction,ttsCB, False)
+    server_stt = actionlib.SimpleActionServer('text_check', OperationAction,text_check, False)
+
+    server_stt.start()
     server.start()
+    server_tts.start()
     rospy.spin()
 
 

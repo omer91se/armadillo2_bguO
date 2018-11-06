@@ -6,12 +6,7 @@
 #include <control_msgs/GripperCommandAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <control_msgs/FollowJointTrajectoryAction.h>
-#include <actionlib/server/simple_action_server.h>
-#include <armadillo2_bgu/OperationAction.h>
-#include <sensor_msgs/JointState.h>
-#include <control_msgs/JointTrajectoryControllerState.h>
 
-typedef actionlib::SimpleActionServer<armadillo2_bgu::OperationAction> Server;
 typedef actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> ArmClient;
 typedef actionlib::SimpleActionClient<control_msgs::GripperCommandAction> GripperClient;
 
@@ -20,9 +15,6 @@ void feedbackCb(const control_msgs::FollowJointTrajectoryFeedbackConstPtr& feedb
 void doneCb(const actionlib::SimpleClientGoalState& state, const control_msgs::FollowJointTrajectoryResultConstPtr& result);
 
 void buildGoal(control_msgs::FollowJointTrajectoryGoal &goal);
-
-float joints[6];
-bool visited = false;
 
 class ArmThrowNode {
 private:
@@ -35,13 +27,13 @@ private:
     bool _alreadyOpen;
     void doneCb(const actionlib::SimpleClientGoalState& state, const control_msgs::FollowJointTrajectoryResultConstPtr& result) {
         ROS_INFO("Finish in state [%s]", state.toString().c_str());
-        //_needToOpen = !_needToOpen;
+        _needToOpen = !_needToOpen;
     }
     void feedbackCb(const control_msgs::FollowJointTrajectoryFeedbackConstPtr& feedback) {
         if((-M_PI / 4)  < feedback->actual.positions[1] && _needToOpen && !_alreadyOpen) {
             _alreadyOpen = true;
             ROS_INFO("OPEN %f", feedback->actual.positions[1]);
-            //openGripper();
+            openGripper();
         }
     }
     void activeCb() {
@@ -60,11 +52,11 @@ private:
 
     }
 
-    control_msgs::FollowJointTrajectoryGoal setGoalTja(double rotate1, double shoulder1, double shoulder2, double rotate2, double shoulder3, double wrist_joint) {
+    control_msgs::FollowJointTrajectoryGoal setGoalTja(double pos) {
         control_msgs::FollowJointTrajectoryGoal goal;
         trajectory_msgs::JointTrajectoryPoint point;
 
-        goal.trajectory.header.frame_id = "";
+        goal.trajectory.header.frame_id = "/map";
         goal.trajectory.header.stamp = ros::Time::now();
         goal.trajectory.joint_names.push_back("rotation1_joint");
         goal.trajectory.joint_names.push_back("shoulder1_joint");
@@ -73,23 +65,15 @@ private:
         goal.trajectory.joint_names.push_back("shoulder3_joint");
         goal.trajectory.joint_names.push_back("wrist_joint");
 
-        point.time_from_start = ros::Duration(55.5);
-        point.accelerations.resize(6);
-        point.accelerations[4] = 2;
+        point.time_from_start = ros::Duration(2.0);
         point.positions.resize(goal.trajectory.joint_names.size());
-        point.positions[0] = rotate1;
-        point.positions[1] = shoulder1;
-        point.positions[2] = shoulder2;
-        point.positions[3] = rotate2;
-        point.positions[4] = shoulder3;
-        //point.positions[5] = joints[5]+pos;
-        point.positions[5] = wrist_joint; //pos
+        point.positions[1] = pos;
         goal.trajectory.points.push_back(point);
         return goal;
     }
 
-    bool setArmCmd(double rotate1, double shoulder1, double shoulder2, double rotate2, double shoulder3, double wrist_joint) {
-        _armClient.sendGoal(setGoalTja(rotate1,shoulder1,shoulder2,rotate2,shoulder3,wrist_joint),
+    bool setArmCmd(double pos) {
+        _armClient.sendGoal(setGoalTja(pos),
                             boost::bind(&ArmThrowNode::doneCb, this, _1, _2),
                             boost::bind(&ArmThrowNode::activeCb, this),
                             ArmClient::SimpleFeedbackCallback());
@@ -128,92 +112,39 @@ public:
 
     void throwProcess() {
         _alreadyOpen = false;
-        //openGripper();
-        //closeGripper();
-        preThrowCmd();
+        openGripper();
+        //preThrowCmd();
         //ros::Duration(10.0).sleep();
-
+        //closeGripper();
         //ros::Duration(3.0).sleep();
         //throwCmd();
 
     }
+
     void openGripper() {
         setGripperCmd(0.14);
     }
 
     void closeGripper() {
-        setGripperCmd(0.01, 0.007);
+        setGripperCmd(0.01, 0.3);
     }
 
 
     void preThrowCmd() {
-      //  setArmCmd(0,0.1);
-        std::cout<<joints[5]<<std::endl;
-        setArmCmd(joints[0],joints[1],joints[2],0,joints[4],2.15);
-        ros::Duration(1.5).sleep();
-        setArmCmd(joints[0],joints[1],joints[2],0,joints[4],joints[5]);
+        setArmCmd(-1.30);
     }
 
     void throwCmd() {
-        setArmCmd(0.0,0.37,0.-0.25,0.0,0.57,0.00);
-        ros::Duration(2).sleep();
-        //setArmCmd(0.0,0.0,0.0,2.5,-1.38,0.00);
+        setArmCmd(1.0);
     }
 
 };
 
-void subCB(const control_msgs::JointTrajectoryControllerStateConstPtr jointStates){
-    joints[0] = jointStates->actual.positions[0];
-    joints[1] = jointStates->actual.positions[1];
-    joints[2] = jointStates->actual.positions[2];
-    joints[3] = jointStates->actual.positions[3];
-    joints[4] = jointStates->actual.positions[4];
-    if(!visited) {
-        joints[5] = jointStates->actual.positions[5];
-        visited =true;
-    }
 
-}
-
-
-void pour(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
-    ROS_INFO("POUR: In CB");
-    ArmThrowNode armThrowNode;
-    armThrowNode.run();
-
-    as->setSucceeded();
-}
-void give(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
-    ROS_INFO("GIVE: In CB");
-    ArmThrowNode armThrowNode;
-    //armThrowNode.throwCmd();
-    armThrowNode.run();
-    as->setSucceeded();
-}
-void open(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as){
-    ROS_INFO("OPEN: In CB");
-    ArmThrowNode armThrowNode;
-    armThrowNode.openGripper();
-
-}
 int main(int argc, char** argv) {
-    ros::init(argc, argv, "pour");
-
-    std::cout<<"arm online"<<std::endl;
-    ros::NodeHandle n;
-
-    ros::Subscriber sub = n.subscribe("/arm_trajectory_controller/state", 1000, subCB);
-    Server pourServer(n, "pour", boost::bind(&pour, _1, &pourServer), false);
-    Server giveServer(n, "extand", boost::bind(&give, _1, &giveServer), false);
-    Server openServer(n,"open",boost::bind(&open,_1,&openServer),false);
-
-    ros::AsyncSpinner spinner(4);
-    giveServer.start();
-    pourServer.start();
-    openServer.start();
-    spinner.start();
-    ros::waitForShutdown();
-
+    ros::init(argc, argv, "arm_trajectory_node");
+    ArmThrowNode armThrowNode;
+    armThrowNode.run();
 
     //armClient.sendGoal(goal, &doneCb, &activeCb, ArmClient::SimpleFeedbackCallback());
 

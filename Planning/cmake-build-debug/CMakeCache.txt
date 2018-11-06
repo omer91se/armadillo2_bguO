@@ -195,10 +195,10 @@ ProcessorCount_cmd_getconf:FILEPATH=/usr/bin/getconf
 ProcessorCount_cmd_sysctl:FILEPATH=/sbin/sysctl
 
 //Value Computed by CMake
-armadillo2_bgu_BINARY_DIR:STATIC=/home/armadillo2/catkin_ws/src/armadillo2_bgu/cmake-build-debug
+armadillo2_bgu_BINARY_DIR:STATIC=/home/catkin_ws/src/armadillo2_bgu/cmake-build-debug
 
 //Value Computed by CMake
-armadillo2_bgu_SOURCE_DIR:STATIC=/home/armadillo2/catkin_ws/src/armadillo2_bgu
+armadillo2_bgu_SOURCE_DIR:STATIC=/home/catkin_ws/src/armadillo2_bgu
 
 //The directory containing a CMake configuration file for catkin.
 catkin_DIR:PATH=catkin_DIR-NOTFOUND

@@ -5,15 +5,17 @@
 using namespace std;
 
 bool picked;
+string action;
 ros::Publisher pub;
 
 void controlCB(const armadillo2_bgu::ActionFeedback::ConstPtr& msg){
     armadillo2_bgu::ActionDispatch reMsg;
     if(msg->status == "action achieved"){
-        reMsg.name = "pick";
+        ROS_INFO("Action2!");
+        reMsg.name = action;
         pub.publish(reMsg);
-    }/*
-    if(msg->status == "pick"){
+    }
+   /* if(msg->status == "pour"){
         ROS_INFO("I have the cup");
         picked = true;
     }*/
@@ -33,13 +35,16 @@ int main(int argc, char** argv)
 
 
     picked = false;
-    reMsg.name = "pick";
+    std::cout<<"Chose action: "<<std::endl;
+    std::cin>>action;
+    reMsg.name = action;
 
 
     ros::Subscriber sub = n.subscribe("/kcl_rosplan/action_feedback",10,controlCB);
-    ros::Duration(3).sleep();
     ROS_INFO("Publishing!");
+    ros::Duration(5).sleep();
     pub.publish(reMsg);
+    ROS_INFO("done Publishing!");
     ros::Duration(7).sleep();
 
     ros::AsyncSpinner spinner(2);

@@ -7,7 +7,7 @@ typedef actionlib::SimpleActionServer<armadillo2_bgu::OperationAction> Server;
 void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as) 
 {
 	armadillo2_bgu::OperationResult result_;
-    ROS_INFO("IN move-elv-2-floor: Moving to elevator");
+    ROS_INFO("IN enter-elevator: Entering elevator");
     //put you'r code in here.
     ros::Duration(2.5).sleep();
 
@@ -22,10 +22,10 @@ void execute(const armadillo2_bgu::OperationGoalConstPtr& goal, Server* as)
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "move-elv-2-floor");
-  std::cout<<"move-elv-2-floor"<<std::endl;
+  ros::init(argc, argv, "enter-elevator");
+  std::cout<<"enter-elevator"<<std::endl;
   ros::NodeHandle n;
-  Server server(n, "move-elv-2-floor", boost::bind(&execute, _1, &server), false);
+  Server server(n, "enter-elevator", boost::bind(&execute, _1, &server), false);
   server.start();
   ros::spin();
   return 0;

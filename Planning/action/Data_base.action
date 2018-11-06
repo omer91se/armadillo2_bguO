@@ -1,0 +1,13 @@
+# Define the goal
+string key  
+float64 x
+float64 y
+float64 z
+---
+# Define the result
+float64 x
+float64 y
+float64 z
+---
+# Define a feedback message
+string feed

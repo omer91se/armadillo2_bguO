@@ -13,7 +13,9 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   moveit_core
   moveit_ros_planning
-  moveit_ros_planning_interface  
+  moveit_ros_planning_interface 
+  tf
+  geometry_msgs
 )
 find_package( OpenCV REQUIRED )
 
@@ -28,7 +30,13 @@ add_service_files(
 ## Generate actions in the 'action' folder
 add_action_files(
   DIRECTORY action
-  FILES Operation.action VocalCmd.action
+  	 FILES 
+         Operation.action 
+	     VocalCmd.action
+         SimplePick.action
+         SimplePlace.action
+         SimpleTarget.action
+         Data_base.action 
 )
 
 
@@ -47,6 +55,21 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
+add_executable(arm_pick src/arm_pick.cpp)
+target_link_libraries(  arm_pick  ${catkin_LIBRARIES})
+add_dependencies(arm_pick armadillo2_bgu_generate_messages_cpp)
+
+add_executable(arm_trajectory_give src/arm_trajectory_give.cpp)
+target_link_libraries(arm_trajectory_give  ${catkin_LIBRARIES})
+add_dependencies(arm_trajectory_give armadillo2_bgu_generate_messages_cpp)
+
+add_executable(arm_trajectory_close_gripper src/arm_trajectory_close_gripper.cpp)
+target_link_libraries(arm_trajectory_close_gripper  ${catkin_LIBRARIES})
+add_dependencies(arm_trajectory_close_gripper armadillo2_bgu_generate_messages_cpp)
+
+add_executable(arm_trajectory_open_gripper src/arm_trajectory_open_gripper.cpp)
+target_link_libraries(arm_trajectory_open_gripper  ${catkin_LIBRARIES})
+add_dependencies(arm_trajectory_open_gripper armadillo2_bgu_generate_messages_cpp)
 
 add_executable(master src/master.cpp)
 target_link_libraries(master ${catkin_LIBRARIES})
@@ -80,13 +103,64 @@ add_executable(omer_planner src/omer_planner.cpp)
 target_link_libraries(  omer_planner  ${catkin_LIBRARIES})
 add_dependencies(omer_planner armadillo2_bgu_generate_messages_cpp)
 
-add_executable(arm src/arm.cpp)
-target_link_libraries(  arm  ${catkin_LIBRARIES})
-add_dependencies(arm armadillo2_bgu_generate_messages_cpp)
-
 add_executable(pour src/pour.cpp)
 target_link_libraries(  pour  ${catkin_LIBRARIES})
 add_dependencies(pour armadillo2_bgu_generate_messages_cpp)
+
+add_executable(detect_elv_door_open src/detect_elv_door_open.cpp)
+target_link_libraries(detect_elv_door_open  ${catkin_LIBRARIES})
+add_dependencies(detect_elv_door_open armadillo2_bgu_generate_messages_cpp)
+
+add_executable(enter_elvator src/enter_elvator.cpp)
+target_link_libraries(enter_elvator  ${catkin_LIBRARIES})
+add_dependencies(enter_elvator armadillo2_bgu_generate_messages_cpp)
+
+add_executable(exit-elevator src/exit-elevator.cpp)
+target_link_libraries(exit-elevator  ${catkin_LIBRARIES})
+add_dependencies(exit-elevator armadillo2_bgu_generate_messages_cpp)
+
+add_executable(face_elevator src/face_elevator.cpp)
+target_link_libraries(face_elevator  ${catkin_LIBRARIES})
+add_dependencies(face_elevator armadillo2_bgu_generate_messages_cpp)
+
+#add_executable(move-away-elev src/move-away-elev.cpp)
+#target_link_libraries(move-away-elev   ${catkin_LIBRARIES})
+#add_dependencies(move-away-elev armadillo2_bgu_generate_messages_cpp)
+
+add_executable(move-elv-2-floor src/move-elv-2-floor.cpp)
+target_link_libraries(move-elv-2-floor   ${catkin_LIBRARIES})
+add_dependencies(move-elv-2-floor armadillo2_bgu_generate_messages_cpp)
+
+add_executable(move_to_elevator src/move_to_elevator.cpp)
+target_link_libraries(move_to_elevator   ${catkin_LIBRARIES})
+add_dependencies(move_to_elevator armadillo2_bgu_generate_messages_cpp)
+
+add_executable(reset-mogo-db src/reset-mogo-db.cpp)
+target_link_libraries(reset-mogo-db  ${catkin_LIBRARIES})
+add_dependencies(reset-mogo-db armadillo2_bgu_generate_messages_cpp)
+
+add_executable(give src/give.cpp)
+target_link_libraries(give  ${catkin_LIBRARIES})
+add_dependencies(give armadillo2_bgu_generate_messages_cpp)
+
+
+
+add_executable(moveNear src/moveNear.cpp)
+target_link_libraries(moveNear  ${catkin_LIBRARIES})
+add_dependencies(moveNear armadillo2_bgu_generate_messages_cpp)
+
+add_executable(master_old src/master_old.cpp)
+target_link_libraries(master_old  ${catkin_LIBRARIES})
+add_dependencies(master_old armadillo2_bgu_generate_messages_cpp)
+
+add_executable(data_base_node src/data_base_node.cpp)
+target_link_libraries(data_base_node  ${catkin_LIBRARIES})
+add_dependencies(data_base_node armadillo2_bgu_generate_messages_cpp)
+
+
+
+
+
 
 
 

@@ -2,21 +2,40 @@
 
 
 <launch>  
-    <node name="master" pkg="armadillo2_bgu" type="master" output="screen">
-    </node>
     
+<node name="master" pkg="armadillo2_bgu" type="master_old" output="screen">
+    </node>    
     
-    <node name="run_node" pkg="armadillo2_bgu" type="run_object_rec.py" output="screen">
+     <node name="run_node" pkg="armadillo2_bgu" type="run_object_rec.py" output="screen">
+    </node> 
+
+    <arg name="move" default="false"/>
+    <arg name="pick" default="false"/>
+    <arg name="pour" default="false"/>
+    <arg name="give" default="false"/>
+    
+    <group if="$(arg move)" >
+        <node name="move" pkg="armadillo2_bgu" type="move" output="screen"></node>
+	<node name="moveNear" pkg="armadillo2_bgu" type="moveNear" output="screen"></node>
+    </group>
+
+    <group if="$(arg pick)" >
+        <node name="pick" pkg="armadillo2_bgu" type="pick" output="screen"></node>
+        <node name="arm_pick" pkg="armadillo2_bgu" type="arm_pick" output="screen"></node>
+    </group>
+
+    <group if="$(arg pour)" >
+    <node name="pour" pkg="armadillo2_bgu" type="pour" output="screen">
+    </node>
+    </group>
+     
+    <node name="omer_planner" pkg="armadillo2_bgu" type="omer_planner" output="screen">
     </node>
 
-    <node name="move" pkg="armadillo2_bgu" type="move" output="screen">
-    </node>
+    <group if="$(arg give)" >
+        <node name="give" pkg="armadillo2_bgu" type="give" output="screen"></node>
+    </group>
 
-    <node name="pick" pkg="armadillo2_bgu" type="pick" output="screen">
-    </node>
-
-    <node name="arm" pkg="armadillo2_bgu" type="arm" output="screen">
-    </node>
  
 
 

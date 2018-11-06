@@ -31,6 +31,9 @@ def loginfo(text):
     #print(text)
 
 
+"""
+Listen to the microphone and does voice recognition:
+"""
 class SpeechDetector:
     def __init__(self):
         self.pub = rospy.Publisher('speech_text', String, queue_size=10)
@@ -60,6 +63,8 @@ class SpeechDetector:
         """ Gets average audio intensity of your mic sound. You can use it to get
             average intensities while you're talking and/or silent. The average
             is the avg of the .2 of the largest intensities recorded.
+
+            Set the silence threshold of the mic
         """
         loginfo("Getting intensity values from mic.")
         p = pyaudio.PyAudio()
@@ -118,7 +123,15 @@ class SpeechDetector:
         Listens to Microphone, extracts phrases from it and calls bing
         to decode the sound
         """
-        self.setup_mic()
+
+        harcoded_threshold = False
+
+        if harcoded_threshold:
+            # Use for the armadillo2 robot microphone
+            self.THRESHOLD = 200
+        else:
+            # Use for a computer microphone
+            self.setup_mic()
 
         #Open stream
         p = pyaudio.PyAudio()
@@ -129,6 +142,8 @@ class SpeechDetector:
                         frames_per_buffer=self.CHUNK)
         loginfo("* Mic set up and listening. ")
         ding()
+        print("hiiii")
+        rospy.sleep(3)
         audio2send = []
         cur_data = ''  # current chunk of audio data
         rel = self.RECORD_RATE//self.CHUNK
